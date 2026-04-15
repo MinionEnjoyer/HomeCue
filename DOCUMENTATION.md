@@ -11,6 +11,7 @@
 - [Home Assistant Integration](#home-assistant-integration)
 - [MQTT Protocol Reference](#mqtt-protocol-reference)
 - [Effects](#effects)
+- [Profile Switching](#profile-switching)
 - [Supported Devices](#supported-devices)
 - [Troubleshooting](#troubleshooting)
 - [Development](#development)
@@ -502,6 +503,91 @@ The `effects_fps` config controls animation smoothness. Default is 30 FPS, which
 
 ---
 
+## Profile Switching
+
+HomeCue can switch between iCUE lighting profiles from Home Assistant using the Corsair Game Integration SDK (CgSDK). Profiles appear as a **select** entity (dropdown) in HA.
+
+### How It Works
+
+1. You create lighting profiles in iCUE as normal
+2. Export them as `.cueprofile` files (Lighting Effects only)
+3. Place them in the GameSdkEffects directory
+4. HomeCue detects them and publishes a dropdown to HA
+5. Selecting a profile in HA activates it via the CgSDK, which overlays it on top of iCUE's default profile
+
+### Setup
+
+1. **Enable in config** — set `profiles_path` in your `config.yaml`:
+
+```yaml
+profiles_path: "C:\\ProgramData\\Corsair\\CUE5\\GameSdkEffects\\HomeCue"
+```
+
+2. **Create the directory** (the setup script does this for you, or create it manually)
+
+3. **Export profiles from iCUE:**
+   - Open iCUE and create or select a lighting profile
+   - Right-click the profile > Export
+   - Select **"Lighting Effects" only** (not hardware settings)
+   - Save the `.cueprofile` file to the profiles directory
+   - **Important:** Use only letters, numbers, and underscores in filenames (e.g., `Gaming_Red.cueprofile`, `Cool_Blue.cueprofile`)
+
+4. **Restart HomeCue** — it will scan the directory and publish the profiles to HA
+
+### Using Profiles in Home Assistant
+
+Once published, a **"iCUE Profile"** select entity appears in HA under the HomeCue device. The dropdown includes:
+
+- **None (iCUE Default)** — deactivates any HomeCue profile, returning to iCUE's default lighting
+- Each exported `.cueprofile` by name
+
+#### In Automations
+
+```yaml
+automation:
+  - alias: "Gaming mode lights"
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.gaming_pc_active
+        to: "on"
+    action:
+      - service: select.select_option
+        target:
+          entity_id: select.icue_profile
+        data:
+          option: "Gaming_Red"
+```
+
+#### In Scenes
+
+```yaml
+scene:
+  - name: "Movie Mode"
+    entities:
+      select.icue_profile:
+        state: "Ambient_Blue"
+```
+
+### How the CgSDK Priority System Works
+
+iCUE uses a priority-based layer system for lighting:
+
+- iCUE's own profiles run at priority **127** (default)
+- HomeCue's profiles are set to priority **128+** (displayed on top)
+- When a HomeCue profile is active, it overlays iCUE's default
+- When deactivated ("None"), iCUE's own profile shows through again
+
+This means your iCUE profiles continue to exist and work — HomeCue simply layers on top when active.
+
+### Limitations
+
+- **Lighting only** — profile switching controls lighting effects, not fan curves or pump speeds
+- **Pre-exported profiles** — profiles must be exported from iCUE and placed in the directory ahead of time
+- **Profile names** — must use only `a-z`, `A-Z`, `0-9`, and `_` (no spaces or special characters)
+- **CgSDK DLL required** — the `CGSDK.x64_2015.dll` must be findable (ships with iCUE, HomeCue searches common install paths)
+
+---
+
 ## Supported Devices
 
 HomeCue supports any RGB device that iCUE can see through its SDK. This includes:
@@ -670,6 +756,7 @@ Load configuration from a YAML file. Returns defaults for any missing values.
 | `exclusive_access` | `bool` | `False` | Request exclusive iCUE control |
 | `log_level` | `str` | `"INFO"` | Logging level |
 | `device_names` | `dict[str, str]` | `{}` | Model name to display name overrides |
+| `profiles_path` | `str \| None` | `None` | Path to GameSdkEffects profile directory |
 
 #### `MqttConfig`
 
@@ -706,6 +793,19 @@ Represents a Corsair RGB device.
 | `discover_devices()` | Return list of `CorsairDevice` from iCUE. |
 | `set_device_color(device_id, r, g, b)` | Set all LEDs on a device to one color. |
 
+### `homecue.icue.profiles`
+
+#### `ProfileManager`
+
+| Method/Property | Description |
+|----------------|-------------|
+| `initialize()` | Load CgSDK DLL and register with iCUE. Returns `True` on success. |
+| `available_profiles()` | List of profile names from `.cueprofile` files in the profiles directory. |
+| `activate(profile_name)` | Activate a profile by name. Deactivates the current one first. |
+| `deactivate()` | Deactivate the current profile, returning to iCUE's default. |
+| `active_profile` | The currently active profile name, or `None`. |
+| `is_initialized` | Whether the CgSDK was loaded successfully. |
+
 ### `homecue.mqtt.client`
 
 #### `MqttClient`
@@ -727,6 +827,10 @@ Represents a Corsair RGB device.
 | `remove_discovery(device)` | Remove a device from HA (empty retained message). |
 | `publish_state(device)` | Publish current device state to HA. |
 | `subscribe_commands(device, callback)` | Subscribe to HA commands for a device. |
+| `publish_profile_select(profiles)` | Publish HA select entity for profile switching. |
+| `remove_profile_select()` | Remove the profile select entity from HA. |
+| `publish_profile_state(active_profile)` | Publish the currently active profile name. |
+| `subscribe_profile_commands(callback)` | Subscribe to profile selection commands. |
 
 ### `homecue.effects.engine`
 

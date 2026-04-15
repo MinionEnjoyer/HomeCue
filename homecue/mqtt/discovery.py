@@ -13,6 +13,11 @@ from homecue.const import (
     EFFECTS_LIST,
     PAYLOAD_OFFLINE,
     PAYLOAD_ONLINE,
+    PROFILE_COMMAND_TOPIC,
+    PROFILE_DISCOVERY_TOPIC_TEMPLATE,
+    PROFILE_NONE,
+    PROFILE_SELECT_UNIQUE_ID,
+    PROFILE_STATE_TOPIC,
     STATE_TOPIC_TEMPLATE,
 )
 from homecue.icue.devices import CorsairDevice
@@ -82,6 +87,62 @@ class HaDiscovery:
         command_topic = COMMAND_TOPIC_TEMPLATE.format(unique_id=device.unique_id)
         self._mqtt.subscribe(command_topic, callback)
         log.debug("Subscribed to commands for %s", device.name)
+
+    def publish_profile_select(self, profiles: list[str]) -> None:
+        """Publish an MQTT discovery config so HA creates a select entity for profiles."""
+        unique_id = PROFILE_SELECT_UNIQUE_ID
+        discovery_topic = PROFILE_DISCOVERY_TOPIC_TEMPLATE.format(unique_id=unique_id)
+        discovery_topic = discovery_topic.replace(
+            "homeassistant", self._discovery_prefix, 1
+        )
+
+        options = [PROFILE_NONE] + profiles
+
+        payload = {
+            "name": "iCUE Profile",
+            "unique_id": unique_id,
+            "command_topic": PROFILE_COMMAND_TOPIC,
+            "state_topic": PROFILE_STATE_TOPIC,
+            "options": options,
+            "availability": {
+                "topic": AVAILABILITY_TOPIC,
+                "payload_available": PAYLOAD_ONLINE,
+                "payload_not_available": PAYLOAD_OFFLINE,
+            },
+            "device": {
+                "identifiers": ["homecue_service"],
+                "name": "HomeCue",
+                "manufacturer": "HomeCue",
+                "model": "iCUE Bridge",
+                "sw_version": __version__,
+            },
+        }
+
+        self._mqtt.publish(discovery_topic, payload, retain=True, qos=1)
+        log.info("Published HA discovery for profile select (%d profiles)", len(profiles))
+
+    def remove_profile_select(self) -> None:
+        """Remove the profile select entity from HA."""
+        unique_id = PROFILE_SELECT_UNIQUE_ID
+        discovery_topic = PROFILE_DISCOVERY_TOPIC_TEMPLATE.format(unique_id=unique_id)
+        discovery_topic = discovery_topic.replace(
+            "homeassistant", self._discovery_prefix, 1
+        )
+        self._mqtt.publish(discovery_topic, "", retain=True, qos=1)
+        log.info("Removed HA discovery for profile select")
+
+    def publish_profile_state(self, active_profile: str | None) -> None:
+        """Publish the currently active profile name."""
+        state = active_profile if active_profile else PROFILE_NONE
+        self._mqtt.publish(PROFILE_STATE_TOPIC, state, retain=True)
+
+    def subscribe_profile_commands(
+        self,
+        callback: Callable[[str, dict | str], None],
+    ) -> None:
+        """Subscribe to profile selection commands from HA."""
+        self._mqtt.subscribe(PROFILE_COMMAND_TOPIC, callback)
+        log.debug("Subscribed to profile commands")
 
     def _discovery_topic(self, unique_id: str) -> str:
         return f"{self._discovery_prefix}/light/{unique_id}/config"

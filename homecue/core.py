@@ -7,10 +7,11 @@ import threading
 import time
 
 from homecue.config import HomeCueConfig
-from homecue.const import EFFECT_STATIC
+from homecue.const import EFFECT_STATIC, PROFILE_NONE
 from homecue.effects.engine import EffectsEngine
 from homecue.icue.bridge import IcueBridge
 from homecue.icue.devices import CorsairDevice
+from homecue.icue.profiles import ProfileManager
 from homecue.mqtt.client import MqttClient
 from homecue.mqtt.discovery import HaDiscovery
 
@@ -53,6 +54,11 @@ class HomeCueService:
             fps=config.effects_fps,
         )
 
+        # Profile manager (optional, requires profiles_path config)
+        self._profiles: ProfileManager | None = None
+        if config.profiles_path:
+            self._profiles = ProfileManager(config.profiles_path)
+
     def run(self) -> None:
         """Start all components and run the main loop."""
         self._running = True
@@ -76,7 +82,10 @@ class HomeCueService:
         # 4. Discover devices and publish to HA
         self._discover_and_publish()
 
-        # 5. Main loop
+        # 5. Initialize profile switching (if configured)
+        self._init_profiles()
+
+        # 6. Main loop
         log.info("HomeCue is running. Press Ctrl+C to stop.")
         try:
             while self._running:
@@ -93,6 +102,11 @@ class HomeCueService:
         log.info("Shutting down HomeCue...")
 
         self._effects.stop()
+
+        # Deactivate profile and remove discovery
+        if self._profiles and self._profiles.is_initialized:
+            self._profiles.deactivate()
+            self._discovery.remove_profile_select()
 
         # Remove HA discovery entries
         with self._lock:
@@ -163,6 +177,45 @@ class HomeCueService:
         # Publish updated state back to HA
         self._discovery.publish_state(device)
 
+    def _init_profiles(self) -> None:
+        """Initialize profile switching if configured."""
+        if not self._profiles:
+            return
+
+        if not self._profiles.initialize():
+            log.warning("Profile switching unavailable (CgSDK init failed)")
+            self._profiles = None
+            return
+
+        profiles = self._profiles.available_profiles()
+        if profiles:
+            log.info("Available profiles: %s", ", ".join(profiles))
+        else:
+            log.info(
+                "No .cueprofile files found in %s. "
+                "Export profiles from iCUE to enable switching.",
+                self._config.profiles_path,
+            )
+
+        self._discovery.publish_profile_select(profiles)
+        self._discovery.publish_profile_state(self._profiles.active_profile)
+        self._discovery.subscribe_profile_commands(self._handle_profile_command)
+
+    def _handle_profile_command(self, topic: str, payload: dict | str) -> None:
+        """Process a profile selection command from Home Assistant."""
+        if not self._profiles:
+            return
+
+        profile_name = payload if isinstance(payload, str) else str(payload)
+        log.info("Profile command: %s", profile_name)
+
+        if profile_name == PROFILE_NONE:
+            self._profiles.deactivate()
+        else:
+            self._profiles.activate(profile_name)
+
+        self._discovery.publish_profile_state(self._profiles.active_profile)
+
     def _publish_all_states(self) -> None:
         """Periodically publish state for all devices."""
         with self._lock:
@@ -170,6 +223,9 @@ class HomeCueService:
 
         for device in devices:
             self._discovery.publish_state(device)
+
+        if self._profiles and self._profiles.is_initialized:
+            self._discovery.publish_profile_state(self._profiles.active_profile)
 
     def _on_devices_changed(self) -> None:
         """Callback when iCUE reports device connect/disconnect."""

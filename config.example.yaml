@@ -28,3 +28,8 @@ log_level: "INFO"
 # device_names:
 #   "CORSAIR iCUE LINK QX RGB Fan": "Top Case Fan"
 #   "CORSAIR K70 RGB PRO": "Gaming Keyboard"
+
+# iCUE profile switching via the Game Integration SDK (CgSDK).
+# Export lighting profiles from iCUE as .cueprofile files (Lighting Effects only)
+# and place them in this directory. They will appear as a dropdown in Home Assistant.
+# profiles_path: "C:\\ProgramData\\Corsair\\CUE5\\GameSdkEffects\\HomeCue"

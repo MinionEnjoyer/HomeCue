@@ -135,6 +135,33 @@ mqtt:
         $configContent += "`n  password: `"$mqttPass`""
     }
 
+    # Ask about profile switching
+    Write-Host ""
+    Write-Host "  Profile switching lets you switch iCUE lighting profiles from Home Assistant." -ForegroundColor Cyan
+    Write-Host "  You export profiles from iCUE and HomeCue exposes them as a dropdown in HA." -ForegroundColor Cyan
+    $enableProfiles = Read-Host "  Enable profile switching? [y/N]"
+    $profilesPathVal = ""
+    if ($enableProfiles -eq "y" -or $enableProfiles -eq "Y") {
+        $profilesDir = "C:\ProgramData\Corsair\CUE5\GameSdkEffects\HomeCue"
+        $profilesPathVal = $profilesDir
+
+        if (-not (Test-Path $profilesDir)) {
+            New-Item -ItemType Directory -Path $profilesDir -Force | Out-Null
+            Write-Host "  Created profiles directory: $profilesDir" -ForegroundColor Green
+        } else {
+            Write-Host "  Profiles directory already exists: $profilesDir" -ForegroundColor Green
+        }
+
+        Write-Host ""
+        Write-Host "  To add profiles:" -ForegroundColor DarkYellow
+        Write-Host "    1. Open iCUE and create a lighting profile" -ForegroundColor DarkYellow
+        Write-Host "    2. Right-click the profile > Export" -ForegroundColor DarkYellow
+        Write-Host "    3. Select 'Lighting Effects' only" -ForegroundColor DarkYellow
+        Write-Host "    4. Save the .cueprofile file to:" -ForegroundColor DarkYellow
+        Write-Host "       $profilesDir" -ForegroundColor Cyan
+        Write-Host "    5. Use only letters, numbers, and underscores in filenames" -ForegroundColor DarkYellow
+    }
+
     $configContent += @"
 
   discovery_prefix: "homeassistant"
@@ -149,6 +176,11 @@ log_level: "INFO"
 # device_names:
 #   "CORSAIR iCUE LINK QX RGB Fan": "Top Case Fan"
 "@
+
+    if (-not [string]::IsNullOrWhiteSpace($profilesPathVal)) {
+        $escapedPath = $profilesPathVal.Replace("\", "\\")
+        $configContent += "`n`nprofiles_path: `"$escapedPath`""
+    }
 
     Set-Content -Path $configPath -Value $configContent -Encoding UTF8
     Write-Host ""

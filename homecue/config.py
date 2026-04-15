@@ -35,6 +35,7 @@ class HomeCueConfig:
     exclusive_access: bool = False
     log_level: str = "INFO"
     device_names: dict[str, str] = field(default_factory=dict)
+    profiles_path: str | None = None
 
 
 def load_config(path: str | Path) -> HomeCueConfig:
@@ -67,4 +68,5 @@ def load_config(path: str | Path) -> HomeCueConfig:
         exclusive_access=raw.get("exclusive_access", False),
         log_level=raw.get("log_level", "INFO"),
         device_names=raw.get("device_names", {}),
+        profiles_path=raw.get("profiles_path"),
     )
