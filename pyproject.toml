@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "homecue"
+version = "0.1.0"
+description = "Bridge Corsair iCUE RGB lighting to Home Assistant via MQTT"
+license = "MIT"
+requires-python = ">=3.9"
+dependencies = [
+    "cuesdk>=2.0.0",
+    "paho-mqtt>=2.0.0",
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+homecue = "homecue.__main__:main"

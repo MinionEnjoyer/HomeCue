@@ -1,0 +1,30 @@
+# HomeCue Configuration
+# Copy this file to config.yaml and adjust as needed.
+
+mqtt:
+  host: "192.168.1.100"       # Home Assistant / MQTT broker IP
+  port: 1883
+  username: "mqtt_user"        # Optional: remove if no auth
+  password: "mqtt_password"    # Optional: remove if no auth
+  discovery_prefix: "homeassistant"
+  client_id: "homecue"
+
+# How often (seconds) to publish device state to Home Assistant
+poll_interval: 5.0
+
+# Effects animation frame rate
+effects_fps: 30
+
+# Request exclusive lighting control from iCUE.
+# When true, iCUE's own lighting profiles will be overridden.
+# When false (default), HomeCue coexists with iCUE profiles.
+exclusive_access: false
+
+# Log level: DEBUG, INFO, WARNING, ERROR
+log_level: "INFO"
+
+# Override device names as they appear in Home Assistant.
+# Keys are the iCUE device model names, values are your preferred names.
+# device_names:
+#   "CORSAIR iCUE LINK QX RGB Fan": "Top Case Fan"
+#   "CORSAIR K70 RGB PRO": "Gaming Keyboard"

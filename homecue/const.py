@@ -1,0 +1,30 @@
+"""Shared constants for HomeCue."""
+
+# MQTT topic prefixes
+TOPIC_PREFIX = "homecue"
+HA_DISCOVERY_PREFIX = "homeassistant"
+
+# MQTT topic templates
+AVAILABILITY_TOPIC = f"{TOPIC_PREFIX}/availability"
+STATE_TOPIC_TEMPLATE = TOPIC_PREFIX + "/{unique_id}/state"
+COMMAND_TOPIC_TEMPLATE = TOPIC_PREFIX + "/{unique_id}/set"
+DISCOVERY_TOPIC_TEMPLATE = HA_DISCOVERY_PREFIX + "/light/{unique_id}/config"
+
+# Payloads
+PAYLOAD_ONLINE = "online"
+PAYLOAD_OFFLINE = "offline"
+
+# Effects
+EFFECT_STATIC = "Static"
+EFFECT_BREATHING = "Breathing"
+EFFECT_RAINBOW = "Rainbow"
+EFFECT_COLOR_CYCLE = "Color Cycle"
+
+EFFECTS_LIST = [EFFECT_STATIC, EFFECT_BREATHING, EFFECT_RAINBOW, EFFECT_COLOR_CYCLE]
+
+# Defaults
+DEFAULT_MQTT_PORT = 1883
+DEFAULT_POLL_INTERVAL = 5.0
+DEFAULT_EFFECTS_FPS = 30
+DEFAULT_BRIGHTNESS = 255
+DEFAULT_COLOR = (255, 255, 255)
