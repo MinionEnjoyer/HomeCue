@@ -2,7 +2,7 @@
 HomeCue is a simple Python service that runs alongside Corsair iCue.  It exposes your Corsair RGB lighting hardware and makes them auto-discoverable MQTT devices through the MQTT broker, accessible to Home Assistant.
 
  - Configure by running the setup script in powershell.
- - Uses mqtt broker through HA to bridge with iCue.
+ - Uses MQTT broker through HA to bridge with iCue.
  - See DOCUMENTATION.md for full setup instructions and features.
 
 ## If you found this project useful, consider supporting me here: https://buymeacoffee.com/minionenjoyer Thank you!
