@@ -130,11 +130,34 @@ HomeCueService main loop (every 5s)
 
 ## Installation
 
-### From Source
+### Automated Setup (Recommended)
+
+The easiest way to install on Windows is the included setup script:
+
+```powershell
+# Clone the repository
+git clone https://github.com/MinionEnjoyer/HomeCue.git
+cd HomeCue
+
+# Run the setup script
+powershell -ExecutionPolicy Bypass -File setup.ps1
+```
+
+The setup script will:
+
+1. **Verify Python 3.9+** is installed and on PATH
+2. **Check that iCUE is running** (with a warning if not)
+3. **Create a virtual environment** and install HomeCue + dependencies
+4. **Walk you through configuration** — prompts for MQTT broker IP, port, credentials, and preferences, then generates `config.yaml`
+5. **Optionally register a startup task** so HomeCue runs automatically when you log into Windows (via Task Scheduler)
+
+### Manual Installation
+
+If you prefer to set things up manually:
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/HomeCue.git
+git clone https://github.com/MinionEnjoyer/HomeCue.git
 cd HomeCue
 
 # Install in a virtual environment (recommended)
@@ -144,6 +167,10 @@ venv\Scripts\activate      # Windows
 
 # Install HomeCue and its dependencies
 pip install -e .
+
+# Create your config
+cp config.example.yaml config.yaml
+# Edit config.yaml with your MQTT broker details
 ```
 
 ### Dependencies
