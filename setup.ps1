@@ -178,8 +178,12 @@ log_level: "INFO"
 "@
 
     if (-not [string]::IsNullOrWhiteSpace($profilesPathVal)) {
-        $escapedPath = $profilesPathVal.Replace("\", "\\")
-        $configContent += "`n`nprofiles_path: `"$escapedPath`""
+        $escapedPath = $profilesPathVal -replace '\\', '\\'
+        $configContent += @"
+
+
+profiles_path: "$escapedPath"
+"@
     }
 
     Set-Content -Path $configPath -Value $configContent -Encoding UTF8
