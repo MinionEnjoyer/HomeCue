@@ -26,6 +26,14 @@ class MqttConfig:
 
 
 @dataclass
+class HomeAssistantConfig:
+    """Home Assistant REST API settings for associated entities."""
+
+    url: str = "http://localhost:8123"
+    token: str = ""
+
+
+@dataclass
 class HomeCueConfig:
     """Top-level HomeCue configuration."""
 
@@ -37,6 +45,8 @@ class HomeCueConfig:
     device_names: dict[str, str] = field(default_factory=dict)
     profiles_path: str | None = None
     sync_groups: dict[str, str] = field(default_factory=dict)
+    home_assistant: HomeAssistantConfig | None = None
+    associated_entities: dict[str, list[str]] = field(default_factory=dict)
 
 
 def load_config(path: str | Path) -> HomeCueConfig:
@@ -62,6 +72,15 @@ def load_config(path: str | Path) -> HomeCueConfig:
         client_id=mqtt_raw.get("client_id", MqttConfig.client_id),
     )
 
+    # Home Assistant REST API (optional)
+    ha_config = None
+    ha_raw = raw.get("home_assistant")
+    if ha_raw and ha_raw.get("token"):
+        ha_config = HomeAssistantConfig(
+            url=ha_raw.get("url", HomeAssistantConfig.url),
+            token=ha_raw["token"],
+        )
+
     return HomeCueConfig(
         mqtt=mqtt,
         poll_interval=raw.get("poll_interval", DEFAULT_POLL_INTERVAL),
@@ -71,4 +90,6 @@ def load_config(path: str | Path) -> HomeCueConfig:
         device_names=raw.get("device_names", {}),
         profiles_path=raw.get("profiles_path"),
         sync_groups=raw.get("sync_groups", {}),
+        home_assistant=ha_config,
+        associated_entities=raw.get("associated_entities", {}),
     )

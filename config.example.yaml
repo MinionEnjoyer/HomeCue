@@ -40,3 +40,20 @@ log_level: "INFO"
 # sync_groups:
 #   "CORSAIR iCUE LINK System Hub": "PC Case Lights"
 #   "CORSAIR K70 RGB PRO": "Desk Lights"
+
+# Home Assistant REST API connection (required for associated_entities).
+# Create a Long-Lived Access Token in HA: Profile > Long-Lived Access Tokens.
+# home_assistant:
+#   url: "http://homeassistant.local:8123"
+#   token: "your_long_lived_access_token_here"
+
+# Associated entities: directly sync HA lights with iCUE device colors.
+# When a Corsair device color changes, these HA lights change to match.
+# Works with any HA light (Zigbee, WiFi, Z-Wave, etc.) — no automations needed.
+# Requires home_assistant config above.
+# associated_entities:
+#   "Commander DUO":
+#     - light.desk_lamp
+#     - light.led_strip
+#   "CORSAIR K70 RGB PRO":
+#     - light.monitor_backlight

@@ -13,6 +13,7 @@
 - [Effects](#effects)
 - [Profile Switching](#profile-switching)
 - [Sync Groups](#sync-groups)
+- [Associated Entities](#associated-entities)
 - [Updating](#updating)
 - [System Tray Mode](#system-tray-mode)
 - [Supported Devices](#supported-devices)
@@ -695,6 +696,81 @@ automation:
 
 ---
 
+## Associated Entities
+
+Associated entities let you directly sync Home Assistant lights with your iCUE device colors — no automations required. When a Corsair device color changes in HomeCue, the associated HA lights are immediately updated to match via the Home Assistant REST API.
+
+This works with **any light in Home Assistant** regardless of protocol (Zigbee, WiFi, Z-Wave, Bluetooth, etc.).
+
+### Setup
+
+#### 1. Create a Long-Lived Access Token in Home Assistant
+
+1. Open your Home Assistant instance
+2. Click your profile icon (bottom-left)
+3. Scroll to **Long-Lived Access Tokens**
+4. Click **Create Token**
+5. Give it a name (e.g., "HomeCue")
+6. Copy the token — you won't be able to see it again
+
+#### 2. Add to config.yaml
+
+```yaml
+home_assistant:
+  url: "http://homeassistant.local:8123"
+  token: "your_long_lived_access_token_here"
+
+associated_entities:
+  "Commander DUO":
+    - light.desk_lamp
+    - light.led_strip
+  "CORSAIR K70 RGB PRO":
+    - light.monitor_backlight
+```
+
+- `home_assistant.url` — your HA instance URL (with port)
+- `home_assistant.token` — the long-lived access token
+- `associated_entities` — maps iCUE device model names to lists of HA light entity IDs
+
+#### 3. Restart HomeCue
+
+The log will show the associated entity mappings on startup:
+
+```
+Associated entities for Commander DUO: light.desk_lamp, light.led_strip
+```
+
+### How It Works
+
+When you change a Corsair device's color from Home Assistant (or via an automation), HomeCue:
+
+1. Sets the color on the Corsair hardware via iCUE SDK
+2. Publishes the updated state back to HA via MQTT
+3. Calls `light.turn_on` on all associated entities with the same RGB color and brightness
+4. If the device is turned off, calls `light.turn_off` on all associated entities
+
+### Finding Entity IDs
+
+To find the entity IDs of your HA lights:
+
+1. Go to **Settings > Devices & Services > Entities**
+2. Filter by "light"
+3. The entity ID is shown in the format `light.your_light_name`
+
+### Comparison with Sync Groups
+
+| Feature | Sync Groups | Associated Entities |
+|---------|-------------|-------------------|
+| Setup | Config + HA automation | Config only |
+| Protocol | Any (via automation) | Any (via REST API) |
+| Requires HA token | No | Yes |
+| User creates automation | Yes | No |
+| Update trigger | Sensor state change | Immediate REST call |
+
+Both features can be used together — sync groups publish sensor state for custom automations, while associated entities handle direct light control.
+
+---
+
 ## Updating
 
 HomeCue includes an update script that pulls the latest version from GitHub and reinstalls dependencies.
@@ -931,6 +1007,8 @@ Load configuration from a YAML file. Returns defaults for any missing values.
 | `device_names` | `dict[str, str]` | `{}` | Model name to display name overrides |
 | `profiles_path` | `str \| None` | `None` | Path to GameSdkEffects profile directory |
 | `sync_groups` | `dict[str, str]` | `{}` | Device model name to sync group name |
+| `home_assistant` | `HomeAssistantConfig \| None` | `None` | HA REST API settings |
+| `associated_entities` | `dict[str, list[str]]` | `{}` | Device model to HA entity ID list |
 
 #### `MqttConfig`
 
