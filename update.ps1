@@ -93,7 +93,8 @@ if (-not $venvOk) {
 Write-Host ""
 Write-Host "[3/3] Reinstalling dependencies..." -ForegroundColor Yellow
 
-$output = & $pipPath install -e $scriptDir --quiet 2>&1
+# Use python -m pip instead of pip.exe — pip.exe has hardcoded paths that break on folder moves
+$output = & $venvPython -m pip install -e $scriptDir --quiet 2>&1
 if ($LASTEXITCODE -ne 0) {
     Write-Host "  ERROR: Installation failed:" -ForegroundColor Red
     Write-Host "  $output" -ForegroundColor Gray

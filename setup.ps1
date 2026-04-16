@@ -93,9 +93,8 @@ if ($recreateVenv) {
     }
 }
 
-$pipPath = Join-Path $venvPath "Scripts\pip.exe"
 Write-Host "  Installing HomeCue and dependencies..."
-& $pipPath install -e $PSScriptRoot --quiet
+& $venvPython -m pip install -e $PSScriptRoot --quiet
 if ($LASTEXITCODE -ne 0) {
     Write-Host "  ERROR: Installation failed." -ForegroundColor Red
     exit 1
