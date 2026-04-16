@@ -136,7 +136,17 @@ def _entry() -> None:
 
 
 def _entry_tray() -> None:
-    """Entry point for homecue-tray.exe (gui_scripts — no console window)."""
+    """Entry point for homecue-tray.exe (gui_scripts — no console window).
+
+    gui_scripts uses pythonw.exe which sets stdout/stderr to None.
+    Any print/warning before logging is configured would crash, so we
+    redirect them to devnull immediately.
+    """
+    if sys.stdout is None:
+        sys.stdout = open(os.devnull, "w")
+    if sys.stderr is None:
+        sys.stderr = open(os.devnull, "w")
+
     # Inject --tray into argv so main() takes the tray path
     sys.argv = [sys.argv[0], "--tray"]
     try:
