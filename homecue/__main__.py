@@ -135,5 +135,19 @@ def _entry() -> None:
         sys.exit(1)
 
 
+def _entry_tray() -> None:
+    """Entry point for homecue-tray.exe (gui_scripts — no console window)."""
+    # Inject --tray into argv so main() takes the tray path
+    sys.argv = [sys.argv[0], "--tray"]
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception:
+        tb = traceback.format_exc()
+        _crash_log(f"FATAL CRASH:\n{tb}")
+        sys.exit(1)
+
+
 if __name__ == "__main__":
     _entry()
