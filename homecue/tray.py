@@ -30,11 +30,13 @@ def _create_icon_image(status: str = "normal") -> Image.Image:
     """Generate a simple HomeCue tray icon programmatically.
 
     status: "normal" (cyan), "error" (red), "connecting" (yellow)
+    Windows requires RGBA mode for tray icons to render correctly.
     """
     colors = {"normal": (0, 200, 255), "error": (255, 60, 60), "connecting": (255, 200, 0)}
     text_color = colors.get(status, colors["normal"])
 
-    img = Image.new("RGB", (_ICON_SIZE, _ICON_SIZE), color=(30, 30, 30))
+    # RGBA mode is required — Windows cannot display RGB-only tray icons
+    img = Image.new("RGBA", (_ICON_SIZE, _ICON_SIZE), color=(30, 30, 30, 255))
     draw = ImageDraw.Draw(img)
 
     try:
@@ -47,7 +49,7 @@ def _create_icon_image(status: str = "normal") -> Image.Image:
     text_h = bbox[3] - bbox[1]
     x = (_ICON_SIZE - text_w) // 2
     y = (_ICON_SIZE - text_h) // 2
-    draw.text((x, y), "HC", fill=text_color, font=font)
+    draw.text((x, y), "HC", fill=(*text_color, 255), font=font)
 
     return img
 

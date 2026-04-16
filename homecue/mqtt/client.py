@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import uuid
 from typing import Any, Callable
 
 import paho.mqtt.client as mqtt
@@ -26,9 +27,11 @@ class MqttClient:
     ) -> None:
         self._host = host
         self._port = port
+        # Append a short random suffix so multiple instances don't kick each other off
+        unique_id = f"{client_id}_{uuid.uuid4().hex[:6]}"
         self._client = mqtt.Client(
             callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
-            client_id=client_id,
+            client_id=unique_id,
         )
 
         if username:
