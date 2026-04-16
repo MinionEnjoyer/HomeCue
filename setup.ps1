@@ -198,10 +198,14 @@ $addStartup = Read-Host "  Run HomeCue automatically at Windows login? [y/N]"
 if ($addStartup -eq "y" -or $addStartup -eq "Y") {
     $taskName = "HomeCue"
 
-    # Remove existing task if present
-    schtasks /Query /TN $taskName 2>$null | Out-Null
-    if ($LASTEXITCODE -eq 0) {
-        schtasks /Delete /TN $taskName /F | Out-Null
+    # Remove existing task if present (ignore errors if it doesn't exist)
+    try {
+        $null = schtasks /Query /TN $taskName 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            $null = schtasks /Delete /TN $taskName /F 2>&1
+        }
+    } catch {
+        # Task doesn't exist yet, that's fine
     }
 
     schtasks /Create `
