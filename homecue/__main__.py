@@ -6,10 +6,12 @@ import os
 import sys
 import traceback
 
-# Log file path — computed before any homecue imports so we can catch import errors
-_LOG_FILE = os.path.normpath(
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "homecue.log")
-)
+# Project root — one level up from homecue/ package directory
+_PROJECT_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+
+# Log file and default config live in the project root
+_LOG_FILE = os.path.join(_PROJECT_ROOT, "homecue.log")
+_DEFAULT_CONFIG = os.path.join(_PROJECT_ROOT, "config.yaml")
 
 
 def _crash_log(message: str) -> None:
@@ -77,8 +79,8 @@ def main() -> None:
     parser.add_argument(
         "-c",
         "--config",
-        default="config.yaml",
-        help="Path to config file (default: config.yaml)",
+        default=_DEFAULT_CONFIG,
+        help="Path to config file (default: config.yaml in project root)",
     )
     parser.add_argument(
         "-v",
