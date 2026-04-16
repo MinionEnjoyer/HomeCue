@@ -12,6 +12,9 @@
 - [MQTT Protocol Reference](#mqtt-protocol-reference)
 - [Effects](#effects)
 - [Profile Switching](#profile-switching)
+- [Sync Groups](#sync-groups)
+- [Updating](#updating)
+- [System Tray Mode](#system-tray-mode)
 - [Supported Devices](#supported-devices)
 - [Troubleshooting](#troubleshooting)
 - [Development](#development)
@@ -183,6 +186,8 @@ Installed automatically by pip:
 | `cuesdk` | Official Corsair iCUE SDK Python bindings |
 | `paho-mqtt` | MQTT client library |
 | `pyyaml` | Configuration file parsing |
+| `pystray` | System tray icon (for `--tray` mode) |
+| `Pillow` | Image generation for tray icon |
 
 ---
 
@@ -229,6 +234,14 @@ log_level: "INFO"
 device_names:
   "CORSAIR iCUE LINK QX RGB Fan": "Top Case Fan"
   "CORSAIR K70 RGB PRO": "Gaming Keyboard"
+
+# iCUE profile switching (see Profile Switching section)
+profiles_path: "C:\\ProgramData\\Corsair\\CUE5\\GameSdkEffects\\HomeCue"
+
+# Sync groups: map iCUE device model → group name (see Sync Groups section)
+sync_groups:
+  "CORSAIR iCUE LINK System Hub": "PC Case Lights"
+  "CORSAIR K70 RGB PRO": "Desk Lights"
 ```
 
 ### Minimal Configuration
@@ -257,6 +270,9 @@ python -m homecue
 
 # With a custom config path
 homecue --config /path/to/config.yaml
+
+# Run minimized to the system tray (no console window)
+homecue --tray
 
 # Check version
 homecue --version
@@ -588,6 +604,159 @@ This means your iCUE profiles continue to exist and work — HomeCue simply laye
 
 ---
 
+## Sync Groups
+
+Sync groups let you keep other Home Assistant lights in sync with your iCUE device colors. When a Corsair device's color changes in HomeCue, a sensor entity reports the current color, and you use HA automations to apply it to any other lights (Zigbee, Z-Wave, WiFi, or any protocol HA supports).
+
+### How It Works
+
+1. You define sync groups in `config.yaml`, mapping an iCUE device model name to a group name
+2. HomeCue creates an HA **sensor** entity for each group (e.g., `sensor.homecue_sync_pc_case_lights`)
+3. The sensor reports the device's current RGB color, brightness, and on/off state as JSON attributes
+4. You create an HA automation that triggers when the sensor changes and applies the color to your other lights
+
+This approach works with **any light in Home Assistant** regardless of protocol — the target lights don't need to be MQTT-controllable.
+
+### Setup
+
+Add `sync_groups` to your `config.yaml`:
+
+```yaml
+sync_groups:
+  "CORSAIR iCUE LINK System Hub": "PC Case Lights"
+  "CORSAIR K70 RGB PRO": "Desk Lights"
+```
+
+Keys are the iCUE device model names (as shown in iCUE). Values are your preferred group names. The group name is used to generate the sensor entity ID and display name:
+
+| Group Name | Sensor Entity ID | Display Name |
+|------------|-----------------|--------------|
+| PC Case Lights | `sensor.homecue_sync_pc_case_lights` | PC Case Lights Sync |
+| Desk Lights | `sensor.homecue_sync_desk_lights` | Desk Lights Sync |
+
+### Sensor State
+
+The sync sensor publishes JSON with the following attributes:
+
+```json
+{
+  "state": "ON",
+  "r": 255,
+  "g": 0,
+  "b": 128,
+  "brightness": 200,
+  "rgb": [255, 0, 128]
+}
+```
+
+### Example HA Automation
+
+Create an automation in Home Assistant that syncs other lights to match your iCUE device:
+
+```yaml
+automation:
+  - alias: "Sync desk lights with keyboard"
+    trigger:
+      - platform: state
+        entity_id: sensor.homecue_sync_desk_lights
+    action:
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: sensor.homecue_sync_desk_lights
+                state: "ON"
+            sequence:
+              - service: light.turn_on
+                target:
+                  entity_id:
+                    - light.desk_lamp
+                    - light.led_strip
+                data:
+                  rgb_color: "{{ state_attr('sensor.homecue_sync_desk_lights', 'rgb') }}"
+                  brightness: "{{ state_attr('sensor.homecue_sync_desk_lights', 'brightness') }}"
+          - conditions:
+              - condition: state
+                entity_id: sensor.homecue_sync_desk_lights
+                state: "OFF"
+            sequence:
+              - service: light.turn_off
+                target:
+                  entity_id:
+                    - light.desk_lamp
+                    - light.led_strip
+```
+
+### MQTT Topics
+
+| Purpose | Topic Pattern |
+|---------|--------------|
+| Sync sensor discovery | `homeassistant/sensor/homecue_sync_{group_id}/config` |
+| Sync sensor state | `homecue/sync/{group_id}/state` |
+
+---
+
+## Updating
+
+HomeCue includes an update script that pulls the latest version from GitHub and reinstalls dependencies.
+
+### Using the Update Script
+
+```powershell
+powershell -ExecutionPolicy Bypass -File update.ps1
+```
+
+The script will:
+
+1. **Pull the latest code** from the `main` branch via `git pull`
+2. **Reinstall dependencies** using the existing virtual environment's pip
+3. **Print a summary** — restart HomeCue afterward to apply changes
+
+### Requirements
+
+- **Git** must be installed and on PATH
+- The **virtual environment** must already exist (created by `setup.ps1` or manual install)
+- Run from the HomeCue project directory
+
+### After Updating
+
+Restart HomeCue to apply the update. If running as a Task Scheduler task, you can restart from Task Scheduler or reboot. If running in the system tray, right-click the tray icon and select "Quit", then relaunch.
+
+---
+
+## System Tray Mode
+
+HomeCue can run minimized to the Windows system tray (next to the clock, like the volume or WiFi icons) instead of keeping a console window open.
+
+### Starting in Tray Mode
+
+```bash
+homecue --tray
+```
+
+Or, if the setup script created a Task Scheduler task, it already uses `--tray` mode by default.
+
+### Tray Icon
+
+A small "HC" icon appears in the system tray notification area. The icon has:
+
+- **Tooltip:** "HomeCue - iCUE to Home Assistant Bridge" (hover to see)
+- **Right-click menu:**
+  - **HomeCue v0.1.0** — version label (non-clickable)
+  - **Quit** — gracefully shuts down HomeCue
+
+### How It Works
+
+- The HomeCue service runs in a background thread
+- The system tray icon runs in the foreground (Windows message loop)
+- Clicking "Quit" calls `service.shutdown()`, cleans up HA entities, and exits
+- If the service exits on its own (e.g., iCUE connection failure), the tray icon also exits
+
+### Console Mode
+
+Without `--tray`, HomeCue runs in the console as before. The tray mode simply wraps the existing service — all functionality is identical.
+
+---
+
 ## Supported Devices
 
 HomeCue supports any RGB device that iCUE can see through its SDK. This includes:
@@ -698,20 +867,24 @@ HomeCue/
 ├── LICENSE                     # MIT License
 ├── DOCUMENTATION.md            # This file
 ├── config.example.yaml         # Example configuration
+├── setup.ps1                   # Windows setup wizard
+├── update.ps1                  # Pull latest & reinstall
 ├── homecue/
 │   ├── __init__.py             # Package version
-│   ├── __main__.py             # CLI entry point
+│   ├── __main__.py             # CLI entry point (--tray flag)
 │   ├── const.py                # Constants (topics, defaults, effect names)
 │   ├── config.py               # YAML config loading
 │   ├── core.py                 # Service orchestrator
+│   ├── tray.py                 # System tray icon (pystray)
 │   ├── icue/
 │   │   ├── __init__.py
 │   │   ├── bridge.py           # iCUE SDK wrapper
-│   │   └── devices.py          # Device data model
+│   │   ├── devices.py          # Device data model
+│   │   └── profiles.py         # CgSDK profile switching
 │   ├── mqtt/
 │   │   ├── __init__.py
 │   │   ├── client.py           # MQTT client with LWT
-│   │   └── discovery.py        # HA MQTT auto-discovery
+│   │   └── discovery.py        # HA MQTT auto-discovery + sync sensors
 │   └── effects/
 │       ├── __init__.py
 │       └── engine.py           # Animated effects engine
@@ -757,6 +930,7 @@ Load configuration from a YAML file. Returns defaults for any missing values.
 | `log_level` | `str` | `"INFO"` | Logging level |
 | `device_names` | `dict[str, str]` | `{}` | Model name to display name overrides |
 | `profiles_path` | `str \| None` | `None` | Path to GameSdkEffects profile directory |
+| `sync_groups` | `dict[str, str]` | `{}` | Device model name to sync group name |
 
 #### `MqttConfig`
 
@@ -831,6 +1005,9 @@ Represents a Corsair RGB device.
 | `remove_profile_select()` | Remove the profile select entity from HA. |
 | `publish_profile_state(active_profile)` | Publish the currently active profile name. |
 | `subscribe_profile_commands(callback)` | Subscribe to profile selection commands. |
+| `publish_sync_sensor(group_id, group_name)` | Publish HA sensor discovery for a sync group. |
+| `remove_sync_sensor(group_id)` | Remove a sync sensor from HA. |
+| `publish_sync_state(group_id, r, g, b, brightness, is_on)` | Publish current color state of a sync group. |
 
 ### `homecue.effects.engine`
 
@@ -843,6 +1020,12 @@ Represents a Corsair RGB device.
 | `set_effect(device_id, effect_name, r, g, b, brightness)` | Set or change the active effect on a device. |
 | `stop_effect(device_id)` | Stop effects on a device and set to black. |
 | `has_active_effect(device_id)` | Check if a device has a running animated effect. |
+
+### `homecue.tray`
+
+| Function | Description |
+|----------|-------------|
+| `run_in_tray(service)` | Run HomeCueService in a background thread with a system tray icon. Blocks until quit. |
 
 ### `homecue.core`
 

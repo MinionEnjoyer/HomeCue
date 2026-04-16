@@ -215,7 +215,7 @@ if ($addStartup -eq "y" -or $addStartup -eq "Y") {
 
     schtasks /Create `
         /TN $taskName `
-        /TR "`"$homecueExe`" --config `"$configPath`"" `
+        /TR "`"$homecueExe`" --config `"$configPath`" --tray" `
         /SC ONLOGON `
         /RL HIGHEST `
         /F | Out-Null

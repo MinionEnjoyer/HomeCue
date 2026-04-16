@@ -33,3 +33,10 @@ log_level: "INFO"
 # Export lighting profiles from iCUE as .cueprofile files (Lighting Effects only)
 # and place them in this directory. They will appear as a dropdown in Home Assistant.
 # profiles_path: "C:\\ProgramData\\Corsair\\CUE5\\GameSdkEffects\\HomeCue"
+
+# Sync groups: map an iCUE device model name to a group name.
+# Each group creates an HA sensor (sensor.homecue_sync_<group_id>) that reports
+# the device's current RGB color. Use HA automations to sync other lights.
+# sync_groups:
+#   "CORSAIR iCUE LINK System Hub": "PC Case Lights"
+#   "CORSAIR K70 RGB PRO": "Desk Lights"

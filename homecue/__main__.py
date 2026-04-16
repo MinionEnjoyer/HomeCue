@@ -29,6 +29,11 @@ def main() -> None:
         action="version",
         version=f"HomeCue {__version__}",
     )
+    parser.add_argument(
+        "--tray",
+        action="store_true",
+        help="Run minimized to the system tray (Windows)",
+    )
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -41,15 +46,20 @@ def main() -> None:
 
     service = HomeCueService(config)
 
-    def handle_signal(signum: int, frame: object) -> None:
-        logging.getLogger(__name__).info("Received signal %d, shutting down...", signum)
-        service.shutdown()
-        sys.exit(0)
+    if args.tray:
+        from homecue.tray import run_in_tray
 
-    signal.signal(signal.SIGINT, handle_signal)
-    signal.signal(signal.SIGTERM, handle_signal)
+        run_in_tray(service)
+    else:
+        def handle_signal(signum: int, frame: object) -> None:
+            logging.getLogger(__name__).info("Received signal %d, shutting down...", signum)
+            service.shutdown()
+            sys.exit(0)
 
-    service.run()
+        signal.signal(signal.SIGINT, handle_signal)
+        signal.signal(signal.SIGTERM, handle_signal)
+
+        service.run()
 
 
 if __name__ == "__main__":

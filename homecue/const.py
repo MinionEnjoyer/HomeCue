@@ -29,6 +29,10 @@ PROFILE_COMMAND_TOPIC = f"{TOPIC_PREFIX}/profiles/set"
 PROFILE_DISCOVERY_TOPIC_TEMPLATE = HA_DISCOVERY_PREFIX + "/select/{unique_id}/config"
 PROFILE_NONE = "None (iCUE Default)"
 
+# Sync groups
+SYNC_STATE_TOPIC_TEMPLATE = TOPIC_PREFIX + "/sync/{group_id}/state"
+SYNC_DISCOVERY_TOPIC_TEMPLATE = HA_DISCOVERY_PREFIX + "/sensor/{unique_id}/config"
+
 # Defaults
 DEFAULT_MQTT_PORT = 1883
 DEFAULT_POLL_INTERVAL = 5.0

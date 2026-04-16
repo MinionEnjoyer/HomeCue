@@ -19,6 +19,8 @@ from homecue.const import (
     PROFILE_SELECT_UNIQUE_ID,
     PROFILE_STATE_TOPIC,
     STATE_TOPIC_TEMPLATE,
+    SYNC_DISCOVERY_TOPIC_TEMPLATE,
+    SYNC_STATE_TOPIC_TEMPLATE,
 )
 from homecue.icue.devices import CorsairDevice
 from homecue.mqtt.client import MqttClient
@@ -143,6 +145,61 @@ class HaDiscovery:
         """Subscribe to profile selection commands from HA."""
         self._mqtt.subscribe(PROFILE_COMMAND_TOPIC, callback)
         log.debug("Subscribed to profile commands")
+
+    def publish_sync_sensor(self, group_id: str, group_name: str) -> None:
+        """Publish an HA sensor entity that reports a sync group's current color."""
+        unique_id = f"homecue_sync_{group_id}"
+        discovery_topic = SYNC_DISCOVERY_TOPIC_TEMPLATE.format(unique_id=unique_id)
+        discovery_topic = discovery_topic.replace(
+            "homeassistant", self._discovery_prefix, 1
+        )
+
+        payload = {
+            "name": f"{group_name} Sync",
+            "unique_id": unique_id,
+            "state_topic": SYNC_STATE_TOPIC_TEMPLATE.format(group_id=group_id),
+            "value_template": "{{ value_json.state }}",
+            "json_attributes_topic": SYNC_STATE_TOPIC_TEMPLATE.format(group_id=group_id),
+            "availability": {
+                "topic": AVAILABILITY_TOPIC,
+                "payload_available": PAYLOAD_ONLINE,
+                "payload_not_available": PAYLOAD_OFFLINE,
+            },
+            "device": {
+                "identifiers": ["homecue_service"],
+                "name": "HomeCue",
+                "manufacturer": "HomeCue",
+                "model": "iCUE Bridge",
+                "sw_version": __version__,
+            },
+        }
+
+        self._mqtt.publish(discovery_topic, payload, retain=True, qos=1)
+        log.info("Published HA discovery for sync sensor: %s (%s)", group_name, unique_id)
+
+    def remove_sync_sensor(self, group_id: str) -> None:
+        """Remove a sync sensor from HA."""
+        unique_id = f"homecue_sync_{group_id}"
+        discovery_topic = SYNC_DISCOVERY_TOPIC_TEMPLATE.format(unique_id=unique_id)
+        discovery_topic = discovery_topic.replace(
+            "homeassistant", self._discovery_prefix, 1
+        )
+        self._mqtt.publish(discovery_topic, "", retain=True, qos=1)
+
+    def publish_sync_state(
+        self, group_id: str, r: int, g: int, b: int, brightness: int, is_on: bool
+    ) -> None:
+        """Publish the current color state of a sync group."""
+        state_topic = SYNC_STATE_TOPIC_TEMPLATE.format(group_id=group_id)
+        payload = {
+            "state": "ON" if is_on else "OFF",
+            "r": r,
+            "g": g,
+            "b": b,
+            "brightness": brightness,
+            "rgb": [r, g, b],
+        }
+        self._mqtt.publish(state_topic, payload, retain=True)
 
     def _discovery_topic(self, unique_id: str) -> str:
         return f"{self._discovery_prefix}/light/{unique_id}/config"

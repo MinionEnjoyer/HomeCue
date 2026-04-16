@@ -59,6 +59,12 @@ class HomeCueService:
         if config.profiles_path:
             self._profiles = ProfileManager(config.profiles_path)
 
+        # Sync groups: map device model name → (group_id, group_name)
+        self._sync_groups: dict[str, tuple[str, str]] = {}
+        for device_model, group_name in config.sync_groups.items():
+            group_id = group_name.lower().replace(" ", "_")
+            self._sync_groups[device_model] = (group_id, group_name)
+
     def run(self) -> None:
         """Start all components and run the main loop."""
         self._running = True
@@ -108,6 +114,10 @@ class HomeCueService:
             self._profiles.deactivate()
             self._discovery.remove_profile_select()
 
+        # Remove sync sensor discovery entries
+        for group_id, _ in self._sync_groups.values():
+            self._discovery.remove_sync_sensor(group_id)
+
         # Remove HA discovery entries
         with self._lock:
             for device in self._devices.values():
@@ -152,6 +162,12 @@ class HomeCueService:
             r, g, b = device.effective_color
             self._bridge.set_device_color(device.device_id, r, g, b)
 
+            # Publish sync sensor if this device has a sync group
+            if device.model in self._sync_groups:
+                group_id, group_name = self._sync_groups[device.model]
+                self._discovery.publish_sync_sensor(group_id, group_name)
+                self._publish_device_sync(device)
+
     def _handle_command(self, device: CorsairDevice, payload: dict | str) -> None:
         """Process an incoming command from Home Assistant."""
         if not isinstance(payload, dict):
@@ -176,6 +192,16 @@ class HomeCueService:
 
         # Publish updated state back to HA
         self._discovery.publish_state(device)
+        self._publish_device_sync(device)
+
+    def _publish_device_sync(self, device: CorsairDevice) -> None:
+        """Publish sync sensor state if device belongs to a sync group."""
+        if device.model not in self._sync_groups:
+            return
+        group_id, _ = self._sync_groups[device.model]
+        self._discovery.publish_sync_state(
+            group_id, device.r, device.g, device.b, device.brightness, device.is_on
+        )
 
     def _init_profiles(self) -> None:
         """Initialize profile switching if configured."""
@@ -223,6 +249,7 @@ class HomeCueService:
 
         for device in devices:
             self._discovery.publish_state(device)
+            self._publish_device_sync(device)
 
         if self._profiles and self._profiles.is_initialized:
             self._discovery.publish_profile_state(self._profiles.active_profile)
