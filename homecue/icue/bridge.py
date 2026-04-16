@@ -9,6 +9,7 @@ from typing import Callable
 from cuesdk import (
     CorsairAccessLevel,
     CorsairDeviceFilter,
+    CorsairDeviceType,
     CorsairError,
     CorsairLedColor,
     CorsairSessionState,
@@ -100,7 +101,11 @@ class IcueBridge:
             log.warning("Cannot discover devices: not connected to iCUE")
             return []
 
-        device_filter = CorsairDeviceFilter()
+        # Pass all device types to get every connected device
+        all_types = 0
+        for dt in CorsairDeviceType:
+            all_types |= dt.value
+        device_filter = CorsairDeviceFilter(device_type_mask=all_types)
         devices_raw, err = self._sdk.get_devices(device_filter)
         if err != CorsairError.CE_Success:
             log.error("Device enumeration failed: %s", err)
