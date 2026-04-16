@@ -186,7 +186,8 @@ profiles_path: "$escapedPath"
 "@
     }
 
-    Set-Content -Path $configPath -Value $configContent -Encoding UTF8
+    # Write as UTF-8 without BOM (PyYAML cannot parse BOM)
+    [System.IO.File]::WriteAllText($configPath, $configContent, [System.Text.UTF8Encoding]::new($false))
     Write-Host ""
     Write-Host "  Config written to config.yaml" -ForegroundColor Green
 }
