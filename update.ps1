@@ -42,14 +42,56 @@ Pop-Location
 
 # --- Reinstall ---
 Write-Host ""
-Write-Host "[2/2] Reinstalling dependencies..." -ForegroundColor Yellow
+Write-Host "[2/3] Checking virtual environment..." -ForegroundColor Yellow
 
-$pipPath = Join-Path $scriptDir "venv\Scripts\pip.exe"
+$venvPath = Join-Path $scriptDir "venv"
+$venvPython = Join-Path $venvPath "Scripts\python.exe"
+$pipPath = Join-Path $venvPath "Scripts\pip.exe"
 
-if (-not (Test-Path $pipPath)) {
+if (-not (Test-Path $venvPath)) {
     Write-Host "  ERROR: Virtual environment not found. Run setup.ps1 first." -ForegroundColor Red
     exit 1
 }
+
+# Check if venv is healthy (exe launchers have hardcoded paths that break on folder moves)
+$venvOk = $false
+if (Test-Path $venvPython) {
+    try {
+        $null = & $venvPython --version 2>&1
+        if ($LASTEXITCODE -eq 0) { $venvOk = $true }
+    } catch {}
+}
+
+if (-not $venvOk) {
+    Write-Host "  Virtual environment has stale paths. Recreating..." -ForegroundColor DarkYellow
+
+    Remove-Item -Recurse -Force $venvPath
+
+    # Find system Python
+    $pythonCmd = $null
+    foreach ($cmd in @("python", "python3", "py")) {
+        try {
+            $null = & $cmd --version 2>&1
+            if ($LASTEXITCODE -eq 0) { $pythonCmd = $cmd; break }
+        } catch {}
+    }
+    if (-not $pythonCmd) {
+        Write-Host "  ERROR: Python not found on PATH. Cannot recreate venv." -ForegroundColor Red
+        exit 1
+    }
+
+    & $pythonCmd -m venv $venvPath
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "  ERROR: Failed to create virtual environment." -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "  Recreated virtual environment" -ForegroundColor Green
+} else {
+    Write-Host "  Virtual environment OK" -ForegroundColor Green
+}
+
+Write-Host ""
+Write-Host "[3/3] Reinstalling dependencies..." -ForegroundColor Yellow
 
 $output = & $pipPath install -e $scriptDir --quiet 2>&1
 if ($LASTEXITCODE -ne 0) {

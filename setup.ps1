@@ -60,10 +60,31 @@ Write-Host ""
 Write-Host "[3/5] Setting up virtual environment and installing..." -ForegroundColor Yellow
 
 $venvPath = Join-Path $PSScriptRoot "venv"
+$venvPython = Join-Path $venvPath "Scripts\python.exe"
+$recreateVenv = $false
 
 if (Test-Path $venvPath) {
-    Write-Host "  Virtual environment already exists, reinstalling..." -ForegroundColor DarkYellow
+    # Check if venv is healthy by running its python.exe
+    $venvOk = $false
+    if (Test-Path $venvPython) {
+        try {
+            $result = & $venvPython --version 2>&1
+            if ($LASTEXITCODE -eq 0) { $venvOk = $true }
+        } catch {}
+    }
+
+    if ($venvOk) {
+        Write-Host "  Virtual environment OK, reinstalling..." -ForegroundColor DarkYellow
+    } else {
+        Write-Host "  Virtual environment is broken (stale paths). Recreating..." -ForegroundColor DarkYellow
+        Remove-Item -Recurse -Force $venvPath
+        $recreateVenv = $true
+    }
 } else {
+    $recreateVenv = $true
+}
+
+if ($recreateVenv) {
     Write-Host "  Creating virtual environment..."
     & $pythonCmd -m venv $venvPath
     if ($LASTEXITCODE -ne 0) {
