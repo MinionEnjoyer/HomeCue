@@ -17,4 +17,4 @@ dependencies = [
 ]
 
 [project.scripts]
-homecue = "homecue.__main__:main"
+homecue = "homecue.__main__:_entry"

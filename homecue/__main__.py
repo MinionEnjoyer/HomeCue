@@ -2,36 +2,58 @@
 
 from __future__ import annotations
 
-import argparse
-import logging
 import os
-import signal
 import sys
+import traceback
 
-from homecue import __version__
-from homecue.config import load_config
-from homecue.core import HomeCueService
+# Log file path — computed before any homecue imports so we can catch import errors
+_LOG_FILE = os.path.normpath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "homecue.log")
+)
 
-# Log file lives next to the config / working directory
-LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "homecue.log")
+
+def _crash_log(message: str) -> None:
+    """Write a crash message to the log file using basic I/O (no dependencies)."""
+    try:
+        with open(_LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(message)
+            f.write("\n")
+    except Exception:
+        pass
+    # Also try stderr in case a console is attached
+    try:
+        sys.stderr.write(message + "\n")
+    except Exception:
+        pass
+
+
+def _pause_console() -> None:
+    """Keep the console window open so the user can read output before it closes."""
+    if sys.platform == "win32":
+        try:
+            print("\nPress Enter to close this window...")
+            input()
+        except (EOFError, OSError):
+            pass
 
 
 def _setup_logging(level_name: str, tray_mode: bool) -> None:
     """Configure logging with file handler (always) and console handler (if not tray)."""
+    import logging
+
     level = getattr(logging, level_name.upper(), logging.INFO)
-    fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s", datefmt="%H:%M:%S")
+    fmt = logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(name)s: %(message)s", datefmt="%H:%M:%S"
+    )
 
     root = logging.getLogger()
     root.setLevel(level)
 
-    # Always write to a log file so tray mode has output
-    log_path = os.path.normpath(LOG_FILE)
-    file_handler = logging.FileHandler(log_path, encoding="utf-8")
+    file_handler = logging.FileHandler(_LOG_FILE, encoding="utf-8")
     file_handler.setLevel(level)
     file_handler.setFormatter(fmt)
     root.addHandler(file_handler)
 
-    # Console handler only when not in tray mode
     if not tray_mode:
         console_handler = logging.StreamHandler()
         console_handler.setLevel(level)
@@ -39,17 +61,15 @@ def _setup_logging(level_name: str, tray_mode: bool) -> None:
         root.addHandler(console_handler)
 
 
-def _pause_console() -> None:
-    """Keep the console window open so the user can read output before it closes."""
-    if sys.platform == "win32":
-        print("\nPress Enter to close this window...")
-        try:
-            input()
-        except EOFError:
-            pass
-
-
 def main() -> None:
+    import argparse
+    import logging
+    import signal
+
+    from homecue import __version__
+    from homecue.config import load_config
+    from homecue.core import HomeCueService
+
     parser = argparse.ArgumentParser(
         prog="homecue",
         description="Bridge Corsair iCUE RGB lighting to Home Assistant via MQTT",
@@ -97,9 +117,21 @@ def main() -> None:
             logging.getLogger(__name__).exception("Fatal error")
         finally:
             service.shutdown()
-            # Keep the console window open so the user can see what happened
             _pause_console()
 
 
+def _entry() -> None:
+    """Outermost entry point — catches everything including import errors."""
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception:
+        tb = traceback.format_exc()
+        _crash_log(f"FATAL CRASH:\n{tb}")
+        _pause_console()
+        sys.exit(1)
+
+
 if __name__ == "__main__":
-    main()
+    _entry()
