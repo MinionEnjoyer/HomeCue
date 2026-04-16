@@ -46,7 +46,7 @@ class HomeCueConfig:
     profiles_path: str | None = None
     sync_groups: dict[str, str] = field(default_factory=dict)
     home_assistant: HomeAssistantConfig | None = None
-    associated_entities: dict[str, list[str]] = field(default_factory=dict)
+    associated_entities: dict[str, str] = field(default_factory=dict)
 
 
 def load_config(path: str | Path) -> HomeCueConfig:

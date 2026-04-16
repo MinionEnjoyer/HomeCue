@@ -698,13 +698,27 @@ automation:
 
 ## Associated Entities
 
-Associated entities let you directly sync Home Assistant lights with your iCUE device colors — no automations required. When a Corsair device color changes in HomeCue, the associated HA lights are immediately updated to match via the Home Assistant REST API.
+Associated entities let you sync Home Assistant lights with your iCUE device colors — no automations required. When a Corsair device color changes, the associated HA light (or light group) is immediately updated to match via the Home Assistant REST API.
 
-This works with **any light in Home Assistant** regardless of protocol (Zigbee, WiFi, Z-Wave, Bluetooth, etc.).
+This works with **any light in Home Assistant** regardless of protocol (Zigbee, WiFi, Z-Wave, Bluetooth, etc.). Use an **HA Light Group** to sync multiple lights at once — you manage group membership entirely from the HA UI.
 
 ### Setup
 
-#### 1. Create a Long-Lived Access Token in Home Assistant
+#### 1. Create a Light Group in Home Assistant (for multiple lights)
+
+If you want to sync multiple lights with one iCUE device, create a Light Group helper:
+
+1. Go to **Settings > Devices & Services > Helpers** tab
+2. Click **Create Helper > Group > Light**
+3. Give it a name (e.g., "Desk Lights")
+4. Select the lights you want to sync
+5. Click **Create**
+
+This creates a `light.desk_lights` entity. You can add or remove lights from this group at any time from the HA UI — no HomeCue restart needed.
+
+> **Tip:** If you only want to sync a single light, skip this step and use that light's entity ID directly.
+
+#### 2. Create a Long-Lived Access Token
 
 1. Open your Home Assistant instance
 2. Click your profile icon (bottom-left)
@@ -713,7 +727,7 @@ This works with **any light in Home Assistant** regardless of protocol (Zigbee, 
 5. Give it a name (e.g., "HomeCue")
 6. Copy the token — you won't be able to see it again
 
-#### 2. Add to config.yaml
+#### 3. Add to config.yaml
 
 ```yaml
 home_assistant:
@@ -721,23 +735,20 @@ home_assistant:
   token: "your_long_lived_access_token_here"
 
 associated_entities:
-  "Commander DUO":
-    - light.desk_lamp
-    - light.led_strip
-  "CORSAIR K70 RGB PRO":
-    - light.monitor_backlight
+  "Commander DUO": "light.desk_lights"
+  "CORSAIR K70 RGB PRO": "light.monitor_backlight"
 ```
 
 - `home_assistant.url` — your HA instance URL (with port)
 - `home_assistant.token` — the long-lived access token
-- `associated_entities` — maps iCUE device model names to lists of HA light entity IDs
+- `associated_entities` — maps iCUE device model names to an HA light or light group entity ID
 
-#### 3. Restart HomeCue
+#### 4. Restart HomeCue
 
 The log will show the associated entity mappings on startup:
 
 ```
-Associated entities for Commander DUO: light.desk_lamp, light.led_strip
+Associated entity for Commander DUO: light.desk_lights
 ```
 
 ### How It Works
@@ -746,22 +757,26 @@ When you change a Corsair device's color from Home Assistant (or via an automati
 
 1. Sets the color on the Corsair hardware via iCUE SDK
 2. Publishes the updated state back to HA via MQTT
-3. Calls `light.turn_on` on all associated entities with the same RGB color and brightness
-4. If the device is turned off, calls `light.turn_off` on all associated entities
+3. Calls `light.turn_on` on the associated entity with the same RGB color and brightness
+4. If the device is turned off, calls `light.turn_off` on the associated entity
 
-### Finding Entity IDs
+If the associated entity is a Light Group, HA automatically applies the color to all group members.
 
-To find the entity IDs of your HA lights:
+### Managing Synced Lights
 
-1. Go to **Settings > Devices & Services > Entities**
-2. Filter by "light"
-3. The entity ID is shown in the format `light.your_light_name`
+To add or remove lights from a sync group:
+
+1. Go to **Settings > Devices & Services > Helpers** in HA
+2. Click your Light Group
+3. Edit the group members
+4. Changes take effect immediately — no HomeCue restart needed
 
 ### Comparison with Sync Groups
 
 | Feature | Sync Groups | Associated Entities |
 |---------|-------------|-------------------|
-| Setup | Config + HA automation | Config only |
+| Setup | Config + HA automation | Config + HA Light Group helper |
+| Manage synced lights | Edit HA automation | Edit Light Group in HA UI |
 | Protocol | Any (via automation) | Any (via REST API) |
 | Requires HA token | No | Yes |
 | User creates automation | Yes | No |
@@ -1008,7 +1023,7 @@ Load configuration from a YAML file. Returns defaults for any missing values.
 | `profiles_path` | `str \| None` | `None` | Path to GameSdkEffects profile directory |
 | `sync_groups` | `dict[str, str]` | `{}` | Device model name to sync group name |
 | `home_assistant` | `HomeAssistantConfig \| None` | `None` | HA REST API settings |
-| `associated_entities` | `dict[str, list[str]]` | `{}` | Device model to HA entity ID list |
+| `associated_entities` | `dict[str, str]` | `{}` | Device model to HA light/group entity ID |
 
 #### `MqttConfig`
 

@@ -21,19 +21,19 @@ class HomeAssistantClient:
         }
 
     def set_light_color(
-        self, entity_ids: list[str], r: int, g: int, b: int, brightness: int
+        self, entity_id: str, r: int, g: int, b: int, brightness: int
     ) -> None:
-        """Turn on lights with the given RGB color and brightness."""
+        """Turn on a light (or light group) with the given RGB color and brightness."""
         data = {
-            "entity_id": entity_ids,
+            "entity_id": entity_id,
             "rgb_color": [r, g, b],
             "brightness": brightness,
         }
         self._call_service("light/turn_on", data)
 
-    def turn_off_lights(self, entity_ids: list[str]) -> None:
-        """Turn off the given light entities."""
-        data = {"entity_id": entity_ids}
+    def turn_off_lights(self, entity_id: str) -> None:
+        """Turn off a light or light group entity."""
+        data = {"entity_id": entity_id}
         self._call_service("light/turn_off", data)
 
     def _call_service(self, service: str, data: dict) -> None:

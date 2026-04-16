@@ -47,13 +47,12 @@ log_level: "INFO"
 #   url: "http://homeassistant.local:8123"
 #   token: "your_long_lived_access_token_here"
 
-# Associated entities: directly sync HA lights with iCUE device colors.
-# When a Corsair device color changes, these HA lights change to match.
-# Works with any HA light (Zigbee, WiFi, Z-Wave, etc.) — no automations needed.
+# Associated entities: sync HA lights with iCUE device colors.
+# When a Corsair device color changes, the associated HA light changes to match.
+# Use an HA Light Group to sync multiple lights — create one in HA UI at
+# Settings > Helpers > Create Helper > Group > Light, then reference it here.
+# Works with any HA light or light group (Zigbee, WiFi, Z-Wave, etc.).
 # Requires home_assistant config above.
 # associated_entities:
-#   "Commander DUO":
-#     - light.desk_lamp
-#     - light.led_strip
-#   "CORSAIR K70 RGB PRO":
-#     - light.monitor_backlight
+#   "Commander DUO": "light.desk_lights"          # an HA Light Group
+#   "CORSAIR K70 RGB PRO": "light.monitor_backlight"  # or a single light

@@ -66,16 +66,16 @@ class HomeCueService:
             group_id = group_name.lower().replace(" ", "_")
             self._sync_groups[device_model] = (group_id, group_name)
 
-        # Associated entities: map device model → list of HA entity IDs
-        self._associated: dict[str, list[str]] = config.associated_entities
+        # Associated entities: map device model → HA light/group entity ID
+        self._associated: dict[str, str] = config.associated_entities
         self._ha_client: HomeAssistantClient | None = None
         if config.home_assistant and self._associated:
             self._ha_client = HomeAssistantClient(
                 url=config.home_assistant.url,
                 token=config.home_assistant.token,
             )
-            for model, entities in self._associated.items():
-                log.info("Associated entities for %s: %s", model, ", ".join(entities))
+            for model, entity_id in self._associated.items():
+                log.info("Associated entity for %s: %s", model, entity_id)
 
     def run(self) -> None:
         """Start all components and run the main loop.
@@ -229,15 +229,14 @@ class HomeCueService:
         )
 
     def _sync_associated(self, device: CorsairDevice) -> None:
-        """Sync associated HA light entities with the device's current color."""
+        """Sync the associated HA light/group entity with the device's current color."""
         if not self._ha_client or device.model not in self._associated:
             return
-        entity_ids = self._associated[device.model]
+        entity_id = self._associated[device.model]
         if device.is_on:
-            r, g, b = device.r, device.g, device.b
-            self._ha_client.set_light_color(entity_ids, r, g, b, device.brightness)
+            self._ha_client.set_light_color(entity_id, device.r, device.g, device.b, device.brightness)
         else:
-            self._ha_client.turn_off_lights(entity_ids)
+            self._ha_client.turn_off_lights(entity_id)
 
     def _init_profiles(self) -> None:
         """Initialize profile switching if configured."""
