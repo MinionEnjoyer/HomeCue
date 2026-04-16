@@ -39,6 +39,16 @@ def _setup_logging(level_name: str, tray_mode: bool) -> None:
         root.addHandler(console_handler)
 
 
+def _pause_console() -> None:
+    """Keep the console window open so the user can read output before it closes."""
+    if sys.platform == "win32":
+        print("\nPress Enter to close this window...")
+        try:
+            input()
+        except EOFError:
+            pass
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="homecue",
@@ -81,8 +91,14 @@ def main() -> None:
         signal.signal(signal.SIGINT, handle_signal)
         signal.signal(signal.SIGTERM, handle_signal)
 
-        service.run()
-        service.shutdown()
+        try:
+            service.run()
+        except Exception:
+            logging.getLogger(__name__).exception("Fatal error")
+        finally:
+            service.shutdown()
+            # Keep the console window open so the user can see what happened
+            _pause_console()
 
 
 if __name__ == "__main__":
