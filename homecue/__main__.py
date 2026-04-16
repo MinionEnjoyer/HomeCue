@@ -4,12 +4,39 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import signal
 import sys
 
 from homecue import __version__
 from homecue.config import load_config
 from homecue.core import HomeCueService
+
+# Log file lives next to the config / working directory
+LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "homecue.log")
+
+
+def _setup_logging(level_name: str, tray_mode: bool) -> None:
+    """Configure logging with file handler (always) and console handler (if not tray)."""
+    level = getattr(logging, level_name.upper(), logging.INFO)
+    fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s", datefmt="%H:%M:%S")
+
+    root = logging.getLogger()
+    root.setLevel(level)
+
+    # Always write to a log file so tray mode has output
+    log_path = os.path.normpath(LOG_FILE)
+    file_handler = logging.FileHandler(log_path, encoding="utf-8")
+    file_handler.setLevel(level)
+    file_handler.setFormatter(fmt)
+    root.addHandler(file_handler)
+
+    # Console handler only when not in tray mode
+    if not tray_mode:
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(level)
+        console_handler.setFormatter(fmt)
+        root.addHandler(console_handler)
 
 
 def main() -> None:
@@ -37,12 +64,7 @@ def main() -> None:
     args = parser.parse_args()
 
     config = load_config(args.config)
-
-    logging.basicConfig(
-        level=getattr(logging, config.log_level.upper(), logging.INFO),
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-        datefmt="%H:%M:%S",
-    )
+    _setup_logging(config.log_level, tray_mode=args.tray)
 
     service = HomeCueService(config)
 
@@ -60,6 +82,7 @@ def main() -> None:
         signal.signal(signal.SIGTERM, handle_signal)
 
         service.run()
+        service.shutdown()
 
 
 if __name__ == "__main__":

@@ -66,8 +66,13 @@ class HomeCueService:
             self._sync_groups[device_model] = (group_id, group_name)
 
     def run(self) -> None:
-        """Start all components and run the main loop."""
+        """Start all components and run the main loop.
+
+        Returns normally when shutdown is requested or a connection fails.
+        The caller (tray or CLI) is responsible for calling shutdown() afterward.
+        """
         self._running = True
+        self._started = False
 
         # 1. Connect to iCUE
         if not self._bridge.connect():
@@ -81,6 +86,8 @@ class HomeCueService:
             log.exception("Could not connect to MQTT broker")
             self._bridge.disconnect()
             return
+
+        self._started = True
 
         # 3. Start effects engine
         self._effects.start()
@@ -99,31 +106,36 @@ class HomeCueService:
                 time.sleep(self._config.poll_interval)
         except KeyboardInterrupt:
             log.info("Interrupted")
-        finally:
             self.shutdown()
 
     def shutdown(self) -> None:
-        """Gracefully stop all components."""
+        """Gracefully stop all components. Safe to call multiple times."""
+        if not self._running and not getattr(self, "_started", False):
+            return
         self._running = False
         log.info("Shutting down HomeCue...")
 
         self._effects.stop()
 
-        # Deactivate profile and remove discovery
-        if self._profiles and self._profiles.is_initialized:
-            self._profiles.deactivate()
-            self._discovery.remove_profile_select()
+        # Only clean up MQTT entities if we actually connected
+        if getattr(self, "_started", False):
+            # Deactivate profile and remove discovery
+            if self._profiles and self._profiles.is_initialized:
+                self._profiles.deactivate()
+                self._discovery.remove_profile_select()
 
-        # Remove sync sensor discovery entries
-        for group_id, _ in self._sync_groups.values():
-            self._discovery.remove_sync_sensor(group_id)
+            # Remove sync sensor discovery entries
+            for group_id, _ in self._sync_groups.values():
+                self._discovery.remove_sync_sensor(group_id)
 
-        # Remove HA discovery entries
-        with self._lock:
-            for device in self._devices.values():
-                self._discovery.remove_discovery(device)
+            # Remove HA discovery entries
+            with self._lock:
+                for device in self._devices.values():
+                    self._discovery.remove_discovery(device)
 
-        self._mqtt.disconnect()
+            self._mqtt.disconnect()
+            self._started = False
+
         self._bridge.disconnect()
         log.info("HomeCue stopped")
 

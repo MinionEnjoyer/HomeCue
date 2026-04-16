@@ -8,4 +8,5 @@ build/
 venv/
 .venv/
 config.yaml
+homecue.log
 .claude/
