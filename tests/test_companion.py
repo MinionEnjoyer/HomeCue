@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 
@@ -15,6 +16,14 @@ companion = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader
 sys.modules[SPEC.name] = companion
 SPEC.loader.exec_module(companion)
+
+
+def test_addon_manifest_grants_mqtt_service_access():
+    manifest_path = Path(__file__).parents[1] / "homecue-addon" / "config.yaml"
+    manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+
+    assert manifest["hassio_api"] is True
+    assert "mqtt:need" in manifest["services"]
 
 
 def _proof(manager, challenge):

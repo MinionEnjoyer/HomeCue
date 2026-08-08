@@ -1,5 +1,5 @@
 name: HomeCue Companion
-version: "0.1.0"
+version: "0.1.1"
 slug: homecue_companion
 description: One-click Home Assistant and MQTT pairing for the HomeCue Windows app
 url: https://github.com/MinionEnjoyer/HomeCue
@@ -9,6 +9,7 @@ arch:
 startup: application
 boot: auto
 init: false
+hassio_api: true
 services:
   - mqtt:need
 ingress: true
