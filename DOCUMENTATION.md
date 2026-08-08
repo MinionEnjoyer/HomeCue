@@ -218,6 +218,13 @@ poll_interval: 5.0
 # Effects animation frame rate (higher = smoother, more CPU)
 effects_fps: 30
 
+# Place discovered iCUE devices in this suggested Home Assistant area
+suggested_area: "HomeCue"
+
+# Optional advanced control: one HA light entity per physical LED
+# (can create hundreds of entities on keyboards and strips)
+expose_individual_leds: false
+
 # Request exclusive lighting control from iCUE.
 #   false (default): HomeCue coexists with iCUE lighting profiles.
 #                     iCUE's profiles will still show unless HomeCue

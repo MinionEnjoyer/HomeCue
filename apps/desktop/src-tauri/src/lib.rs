@@ -21,6 +21,8 @@ struct Settings {
     exclusive_access: bool,
     log_level: String,
     profiles_path: String,
+    suggested_area: String,
+    expose_individual_leds: bool,
 }
 
 impl Default for Settings {
@@ -30,6 +32,7 @@ impl Default for Settings {
         ha_url: "http://homeassistant.local:8123".into(), ha_token: String::new(),
         poll_interval: 2.0, effects_fps: 30, exclusive_access: false,
         log_level: "INFO".into(), profiles_path: String::new(),
+        suggested_area: "HomeCue".into(), expose_individual_leds: false,
     }}
 }
 
@@ -38,6 +41,17 @@ struct ServiceStatus { running: bool, pid: Option<u32>, message: String }
 
 fn config_path(app: &AppHandle) -> Result<PathBuf, String> {
     app.path().app_config_dir().map(|p| p.join("config.yaml")).map_err(|e| e.to_string())
+}
+
+fn inventory_path(app: &AppHandle) -> Result<PathBuf, String> {
+    app.path().app_config_dir().map(|p| p.join("inventory.json")).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn load_inventory(app: AppHandle) -> Result<serde_json::Value, String> {
+    let path = inventory_path(&app)?;
+    if !path.exists() { return Ok(serde_json::json!({"connected": false, "count": 0, "devices": []})); }
+    serde_json::from_str(&fs::read_to_string(path).map_err(|e| e.to_string())?).map_err(|e| e.to_string())
 }
 
 fn map_get<'a>(map: &'a Mapping, key: &str) -> Option<&'a Value> { map.get(&Value::String(key.into())) }
@@ -61,6 +75,8 @@ fn load_settings(app: AppHandle) -> Result<Settings, String> {
         effects_fps: map_get(&root, "effects_fps").and_then(Value::as_u64).unwrap_or(d.effects_fps as u64) as u32,
         exclusive_access: map_get(&root, "exclusive_access").and_then(Value::as_bool).unwrap_or(false),
         log_level: text(&root, "log_level", &d.log_level), profiles_path: text(&root, "profiles_path", ""),
+        suggested_area: text(&root, "suggested_area", &d.suggested_area),
+        expose_individual_leds: map_get(&root, "expose_individual_leds").and_then(Value::as_bool).unwrap_or(false),
     })
 }
 
@@ -79,6 +95,7 @@ fn save_settings(app: AppHandle, settings: Settings) -> Result<(), String> {
     let mut root = Mapping::new(); root.insert("mqtt".into(), Value::Mapping(mqtt));
     root.insert("poll_interval".into(), settings.poll_interval.into()); root.insert("effects_fps".into(), settings.effects_fps.into());
     root.insert("exclusive_access".into(), settings.exclusive_access.into()); root.insert("log_level".into(), settings.log_level.into());
+    root.insert("suggested_area".into(), settings.suggested_area.into()); root.insert("expose_individual_leds".into(), settings.expose_individual_leds.into());
     if !settings.profiles_path.is_empty() { root.insert("profiles_path".into(), settings.profiles_path.into()); }
     if !settings.ha_token.is_empty() { let mut ha = Mapping::new(); ha.insert("url".into(), settings.ha_url.into()); ha.insert("token".into(), settings.ha_token.into()); root.insert("home_assistant".into(), Value::Mapping(ha)); }
     fs::write(path, serde_yaml::to_string(&root).map_err(|e| e.to_string())?).map_err(|e| e.to_string())
@@ -109,7 +126,8 @@ fn start_service(app: AppHandle, state: State<'_, ServiceProcess>) -> Result<Ser
         cmd.current_dir(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../.."));
         cmd
     };
-    let child = command.args(["--config"]).arg(&cfg).arg("--no-pause")
+    let inventory = inventory_path(&app)?;
+    let child = command.args(["--config"]).arg(&cfg).arg("--status-file").arg(&inventory).arg("--no-pause")
         .stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).spawn()
         .map_err(|e| format!("Could not start the HomeCue service: {e}"))?;
     let pid = child.id(); *process = Some(child);
@@ -128,7 +146,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| { if let Some(w) = app.get_webview_window("main") { let _ = w.show(); let _ = w.set_focus(); } }))
         .manage(ServiceProcess::default())
-        .invoke_handler(tauri::generate_handler![load_settings, save_settings, service_status, start_service, stop_service])
+        .invoke_handler(tauri::generate_handler![load_settings, save_settings, load_inventory, service_status, start_service, stop_service])
         .setup(|app| {
             let open = MenuItem::with_id(app, "open", "Open HomeCue", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit HomeCue", true, None::<&str>)?;

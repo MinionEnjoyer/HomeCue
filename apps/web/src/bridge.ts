@@ -13,14 +13,19 @@ export type Settings = {
   exclusiveAccess: boolean;
   logLevel: string;
   profilesPath: string;
+  suggestedArea: string;
+  exposeIndividualLeds: boolean;
 };
 
 export type ServiceStatus = { running: boolean; pid: number | null; message: string };
+export type InventoryDevice = { id: string; name: string; model: string; type: string; ledCount: number; capabilities: string[] };
+export type Inventory = { connected: boolean; count: number; devices: InventoryDevice[] };
 
 export const defaults: Settings = {
   mqttHost: "localhost", mqttPort: 1883, mqttUsername: "", mqttPassword: "",
   discoveryPrefix: "homeassistant", haUrl: "http://homeassistant.local:8123", haToken: "",
   pollInterval: 2, effectsFps: 30, exclusiveAccess: false, logLevel: "INFO", profilesPath: "",
+  suggestedArea: "HomeCue", exposeIndividualLeds: false,
 };
 
 const isTauri = () => "__TAURI_INTERNALS__" in window;
@@ -39,6 +44,11 @@ export async function saveSettings(settings: Settings): Promise<void> {
 export async function getServiceStatus(): Promise<ServiceStatus> {
   if (isTauri()) return invoke<ServiceStatus>("service_status");
   return { running: false, pid: null, message: "Browser preview" };
+}
+
+export async function loadInventory(): Promise<Inventory> {
+  if (isTauri()) return invoke<Inventory>("load_inventory");
+  return { connected: false, count: 0, devices: [] };
 }
 
 export async function startService(): Promise<ServiceStatus> {

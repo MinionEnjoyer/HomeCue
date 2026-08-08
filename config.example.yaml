@@ -15,6 +15,13 @@ poll_interval: 5.0
 # Effects animation frame rate
 effects_fps: 30
 
+# Suggested Home Assistant area for every discovered HomeCue/iCUE device.
+suggested_area: "HomeCue"
+
+# Advanced: expose every physical LED as an independent HA light entity.
+# This can create hundreds of entities for keyboards and dense LED strips.
+expose_individual_leds: false
+
 # Request exclusive lighting control from iCUE.
 # When true, iCUE's own lighting profiles will be overridden.
 # When false (default), HomeCue coexists with iCUE profiles.

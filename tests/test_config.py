@@ -28,6 +28,8 @@ home_assistant:
 poll_interval: 1.5
 effects_fps: 60
 exclusive_access: true
+suggested_area: Gaming Room
+expose_individual_leds: true
 """,
         encoding="utf-8",
     )
@@ -37,3 +39,5 @@ exclusive_access: true
     assert config.poll_interval == pytest.approx(1.5)
     assert config.effects_fps == 60
     assert config.exclusive_access is True
+    assert config.suggested_area == "Gaming Room"
+    assert config.expose_individual_leds is True
