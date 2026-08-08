@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Activity, Cable, Check, Gauge, Home, Lightbulb, Play, Power, RotateCw, Save, Settings2, Square, Wifi } from "lucide-react";
+import { Cable, Check, Gauge, Home, Lightbulb, Play, RotateCw, Save, Settings2, Square, Wifi } from "lucide-react";
 import { defaults, getServiceStatus, loadSettings, saveSettings, startService, stopService, type ServiceStatus, type Settings } from "./bridge";
 
 type Tab = "overview" | "connections" | "runtime";
@@ -36,7 +36,7 @@ export default function App() {
       <header><div><p>DESKTOP CONTROL CENTER</p><h1>{tab === "overview" ? "Your lighting, in sync." : tab === "connections" ? "Connections" : "Runtime"}</h1></div><button className="primary" disabled={busy} onClick={persist}><Save size={17}/>{busy ? "Working…" : "Save changes"}</button></header>
       {notice && <div className="notice"><Check size={16}/>{notice}</div>}
       {tab === "overview" && <>
-        <section className="hero"><div><span className="eyebrow"><Activity size={14}/> HOME ASSISTANT + iCUE</span><h2>One bridge.<br/><em>Every color.</em></h2><p>Control Corsair lighting from Home Assistant while HomeCue handles discovery, effects, and state sync in the background.</p><div className="actions"><button className={status.running ? "danger" : "primary"} onClick={toggleService} disabled={busy}>{status.running ? <><Square size={16}/>Stop service</> : <><Play size={16}/>Start service</>}</button><button className="secondary" onClick={refresh}><RotateCw size={16}/>Refresh</button></div></div><div className="orb"><span/><span/><Lightbulb size={52}/></div></section>
+        <section className="service-card"><div><span className={`service-dot ${status.running ? "online" : ""}`}/><div><h2>{status.running ? "HomeCue is running" : "HomeCue is stopped"}</h2><p>{status.running ? `Connected process${status.pid ? ` · PID ${status.pid}` : ""}` : "Start the bridge when iCUE and your MQTT broker are ready."}</p></div></div><div className="actions"><button className={status.running ? "danger" : "primary"} onClick={toggleService} disabled={busy}>{status.running ? <><Square size={16}/>Stop</> : <><Play size={16}/>Start</>}</button><button className="secondary" aria-label="Refresh status" onClick={refresh}><RotateCw size={16}/></button></div></section>
         <section className="cards">
           <article><div className="icon cyan"><Wifi/></div><span>MQTT broker</span><strong>{settings.mqttHost}:{settings.mqttPort}</strong><small>{settings.mqttUsername ? `Signed in as ${settings.mqttUsername}` : "Anonymous connection"}</small></article>
           <article><div className="icon violet"><Home/></div><span>Home Assistant</span><strong>{settings.haToken ? "Configured" : "Needs token"}</strong><small>{settings.haUrl}</small></article>
