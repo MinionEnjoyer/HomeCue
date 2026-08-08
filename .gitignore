@@ -7,6 +7,11 @@ build/
 .eggs/
 venv/
 .venv/
+node_modules/
+apps/web/dist/
+*.tsbuildinfo
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/binaries/
 config.yaml
 homecue.log
 .claude/
