@@ -2,7 +2,7 @@ name: Desktop build
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: ["**"]
     tags: ["desktop-v*"]
   pull_request:
 jobs:
