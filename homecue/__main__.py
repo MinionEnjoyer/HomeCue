@@ -95,6 +95,7 @@ def main() -> None:
         action="store_true",
         help=argparse.SUPPRESS,
     )
+    parser.add_argument("--status-file", help=argparse.SUPPRESS)
     args = parser.parse_args()
 
     # Keep dependency-heavy Windows SDK imports after argument parsing so
@@ -106,7 +107,7 @@ def main() -> None:
     log_file = os.path.join(os.path.dirname(os.path.abspath(args.config)), "homecue.log")
     _setup_logging(config.log_level, tray_mode=args.tray, log_file=log_file)
 
-    service = HomeCueService(config)
+    service = HomeCueService(config, status_path=args.status_file)
 
     if args.tray:
         from homecue.tray import run_in_tray

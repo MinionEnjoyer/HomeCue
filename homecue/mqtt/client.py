@@ -23,6 +23,7 @@ class MqttClient:
         port: int = 1883,
         username: str | None = None,
         password: str | None = None,
+        tls: bool = False,
         client_id: str = "homecue",
     ) -> None:
         self._host = host
@@ -36,6 +37,8 @@ class MqttClient:
 
         if username:
             self._client.username_pw_set(username, password)
+        if tls:
+            self._client.tls_set()
 
         # Last Will: if we disconnect unexpectedly, broker publishes "offline"
         self._client.will_set(

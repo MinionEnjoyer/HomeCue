@@ -21,6 +21,7 @@ class MqttConfig:
     port: int = DEFAULT_MQTT_PORT
     username: str | None = None
     password: str | None = None
+    tls: bool = False
     discovery_prefix: str = "homeassistant"
     client_id: str = "homecue"
 
@@ -47,6 +48,8 @@ class HomeCueConfig:
     sync_groups: dict[str, str] = field(default_factory=dict)
     home_assistant: HomeAssistantConfig | None = None
     associated_entities: dict[str, str] = field(default_factory=dict)
+    suggested_area: str = "HomeCue"
+    expose_individual_leds: bool = False
 
 
 def load_config(path: str | Path) -> HomeCueConfig:
@@ -68,6 +71,7 @@ def load_config(path: str | Path) -> HomeCueConfig:
         port=mqtt_raw.get("port", MqttConfig.port),
         username=mqtt_raw.get("username"),
         password=mqtt_raw.get("password"),
+        tls=mqtt_raw.get("tls", False),
         discovery_prefix=mqtt_raw.get("discovery_prefix", MqttConfig.discovery_prefix),
         client_id=mqtt_raw.get("client_id", MqttConfig.client_id),
     )
@@ -92,4 +96,6 @@ def load_config(path: str | Path) -> HomeCueConfig:
         sync_groups=raw.get("sync_groups", {}),
         home_assistant=ha_config,
         associated_entities=raw.get("associated_entities", {}),
+        suggested_area=raw.get("suggested_area", "HomeCue"),
+        expose_individual_leds=raw.get("expose_individual_leds", False),
     )

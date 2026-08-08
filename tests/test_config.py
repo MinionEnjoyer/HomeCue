@@ -21,6 +21,7 @@ mqtt:
   host: broker.local
   port: 1884
   username: cue
+  tls: true
   discovery_prefix: ha
 home_assistant:
   url: http://ha.local:8123
@@ -28,12 +29,17 @@ home_assistant:
 poll_interval: 1.5
 effects_fps: 60
 exclusive_access: true
+suggested_area: Gaming Room
+expose_individual_leds: true
 """,
         encoding="utf-8",
     )
     config = load_config(path)
     assert (config.mqtt.host, config.mqtt.port, config.mqtt.username) == ("broker.local", 1884, "cue")
+    assert config.mqtt.tls is True
     assert config.home_assistant and config.home_assistant.url == "http://ha.local:8123"
     assert config.poll_interval == pytest.approx(1.5)
     assert config.effects_fps == 60
     assert config.exclusive_access is True
+    assert config.suggested_area == "Gaming Room"
+    assert config.expose_individual_leds is True

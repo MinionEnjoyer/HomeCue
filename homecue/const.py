@@ -33,6 +33,12 @@ PROFILE_NONE = "None (iCUE Default)"
 SYNC_STATE_TOPIC_TEMPLATE = TOPIC_PREFIX + "/sync/{group_id}/state"
 SYNC_DISCOVERY_TOPIC_TEMPLATE = HA_DISCOVERY_PREFIX + "/sensor/{unique_id}/config"
 
+# Inventory and optional per-LED control
+INVENTORY_STATE_TOPIC = f"{TOPIC_PREFIX}/inventory/state"
+INVENTORY_DISCOVERY_TOPIC_TEMPLATE = HA_DISCOVERY_PREFIX + "/sensor/homecue_inventory/config"
+LED_STATE_TOPIC_TEMPLATE = TOPIC_PREFIX + "/{unique_id}/led/{led_id}/state"
+LED_COMMAND_TOPIC_TEMPLATE = TOPIC_PREFIX + "/{unique_id}/led/{led_id}/set"
+
 # Defaults
 DEFAULT_MQTT_PORT = 1883
 DEFAULT_POLL_INTERVAL = 5.0

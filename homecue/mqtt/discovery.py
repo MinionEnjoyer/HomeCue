@@ -11,6 +11,10 @@ from homecue.const import (
     COMMAND_TOPIC_TEMPLATE,
     DISCOVERY_TOPIC_TEMPLATE,
     EFFECTS_LIST,
+    INVENTORY_DISCOVERY_TOPIC_TEMPLATE,
+    INVENTORY_STATE_TOPIC,
+    LED_COMMAND_TOPIC_TEMPLATE,
+    LED_STATE_TOPIC_TEMPLATE,
     PAYLOAD_OFFLINE,
     PAYLOAD_ONLINE,
     PROFILE_COMMAND_TOPIC,
@@ -31,9 +35,21 @@ log = logging.getLogger(__name__)
 class HaDiscovery:
     """Publishes and manages Home Assistant MQTT discovery for Corsair devices."""
 
-    def __init__(self, mqtt_client: MqttClient, discovery_prefix: str = "homeassistant") -> None:
+    def __init__(self, mqtt_client: MqttClient, discovery_prefix: str = "homeassistant", suggested_area: str = "HomeCue") -> None:
         self._mqtt = mqtt_client
         self._discovery_prefix = discovery_prefix
+        self._suggested_area = suggested_area
+
+    def _device_info(self, device: CorsairDevice) -> dict:
+        return {
+            "identifiers": [device.unique_id],
+            "name": device.name,
+            "manufacturer": "Corsair",
+            "model": f"{device.model} · {device.device_type}",
+            "sw_version": __version__,
+            "via_device": "homecue_service",
+            "suggested_area": self._suggested_area,
+        }
 
     def publish_discovery(self, device: CorsairDevice) -> None:
         """Publish an MQTT discovery config so HA creates a light entity."""
@@ -56,14 +72,7 @@ class HaDiscovery:
             "brightness_scale": 255,
             "effect": True,
             "effect_list": EFFECTS_LIST,
-            "device": {
-                "identifiers": [unique_id],
-                "name": device.name,
-                "manufacturer": "Corsair",
-                "model": f"{device.device_type} ({device.led_count} LEDs)",
-                "sw_version": __version__,
-                "via_device": "homecue",
-            },
+            "device": self._device_info(device),
         }
 
         self._mqtt.publish(discovery_topic, payload, retain=True, qos=1)
@@ -89,6 +98,43 @@ class HaDiscovery:
         command_topic = COMMAND_TOPIC_TEMPLATE.format(unique_id=device.unique_id)
         self._mqtt.subscribe(command_topic, callback)
         log.debug("Subscribed to commands for %s", device.name)
+
+    def publish_led_discovery(self, device: CorsairDevice, led_id: int) -> None:
+        """Expose one physical LED as an independent HA light entity."""
+        entity_id = f"{device.unique_id}_led_{led_id}"
+        topic = f"{self._discovery_prefix}/light/{entity_id}/config"
+        payload = {
+            "name": f"LED {led_id}", "unique_id": entity_id, "schema": "json",
+            "command_topic": LED_COMMAND_TOPIC_TEMPLATE.format(unique_id=device.unique_id, led_id=led_id),
+            "state_topic": LED_STATE_TOPIC_TEMPLATE.format(unique_id=device.unique_id, led_id=led_id),
+            "availability": {"topic": AVAILABILITY_TOPIC, "payload_available": PAYLOAD_ONLINE, "payload_not_available": PAYLOAD_OFFLINE},
+            "supported_color_modes": ["rgb"], "brightness": True, "brightness_scale": 255,
+            "device": self._device_info(device),
+        }
+        self._mqtt.publish(topic, payload, retain=True, qos=1)
+
+    def publish_led_state(self, device: CorsairDevice, led_id: int, payload: dict) -> None:
+        self._mqtt.publish(LED_STATE_TOPIC_TEMPLATE.format(unique_id=device.unique_id, led_id=led_id), payload, retain=True)
+
+    def subscribe_led_commands(self, device: CorsairDevice, led_id: int, callback: Callable[[str, dict | str], None]) -> None:
+        self._mqtt.subscribe(LED_COMMAND_TOPIC_TEMPLATE.format(unique_id=device.unique_id, led_id=led_id), callback)
+
+    def remove_led_discovery(self, device: CorsairDevice, led_id: int) -> None:
+        entity_id = f"{device.unique_id}_led_{led_id}"
+        self._mqtt.publish(f"{self._discovery_prefix}/light/{entity_id}/config", "", retain=True, qos=1)
+
+    def publish_inventory(self, devices: list[CorsairDevice]) -> None:
+        """Publish a single HomeCue hub entity with inventory diagnostics."""
+        topic = INVENTORY_DISCOVERY_TOPIC_TEMPLATE.replace("homeassistant", self._discovery_prefix, 1)
+        payload = {
+            "name": "Connected devices", "unique_id": "homecue_inventory",
+            "state_topic": INVENTORY_STATE_TOPIC, "value_template": "{{ value_json.count }}",
+            "json_attributes_topic": INVENTORY_STATE_TOPIC,
+            "availability": {"topic": AVAILABILITY_TOPIC, "payload_available": PAYLOAD_ONLINE, "payload_not_available": PAYLOAD_OFFLINE},
+            "device": {"identifiers": ["homecue_service"], "name": "HomeCue", "manufacturer": "HomeCue", "model": "iCUE Bridge", "sw_version": __version__, "suggested_area": self._suggested_area},
+        }
+        self._mqtt.publish(topic, payload, retain=True, qos=1)
+        self._mqtt.publish(INVENTORY_STATE_TOPIC, {"count": len(devices), "devices": [{"id": d.unique_id, "name": d.name, "model": d.model, "type": d.device_type, "led_count": d.led_count} for d in devices]}, retain=True)
 
     def publish_profile_select(self, profiles: list[str]) -> None:
         """Publish an MQTT discovery config so HA creates a select entity for profiles."""
@@ -117,6 +163,7 @@ class HaDiscovery:
                 "manufacturer": "HomeCue",
                 "model": "iCUE Bridge",
                 "sw_version": __version__,
+                "suggested_area": self._suggested_area,
             },
         }
 

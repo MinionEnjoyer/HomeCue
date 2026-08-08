@@ -50,3 +50,37 @@ def test_sync_sensor_contract() -> None:
     assert mqtt.published[-1][1] == {
         "state": "ON", "r": 1, "g": 2, "b": 3, "brightness": 128, "rgb": [1, 2, 3]
     }
+
+
+def test_inventory_groups_devices_in_suggested_area() -> None:
+    mqtt = FakeMqtt()
+    target = CorsairDevice("id", "Desk lights", "Commander", "controller", 2, [10, 11])
+    discovery = HaDiscovery(mqtt, "custom", "Gaming Room")  # type: ignore[arg-type]
+    discovery.publish_inventory([target])
+    config_payload = mqtt.published[-2][1]
+    state_payload = mqtt.published[-1][1]
+    assert config_payload["device"]["suggested_area"] == "Gaming Room"
+    assert state_payload["count"] == 1
+    assert state_payload["devices"][0]["led_count"] == 2
+
+    discovery.publish_inventory([])
+    assert mqtt.published[-1][1] == {"count": 0, "devices": []}
+
+
+def test_individual_led_discovery_and_state_contract() -> None:
+    mqtt = FakeMqtt()
+    target = CorsairDevice("id", "Desk lights", "Commander", "controller", 1, [42])
+    discovery = HaDiscovery(mqtt, "custom", "Gaming Room")  # type: ignore[arg-type]
+    discovery.publish_led_discovery(target, 42)
+    topic, payload, retain, qos = mqtt.published[-1]
+    assert topic == f"custom/light/{target.unique_id}_led_42/config"
+    assert payload["name"] == "LED 42"
+    assert payload["device"]["identifiers"] == [target.unique_id]
+    assert payload["device"]["suggested_area"] == "Gaming Room"
+    assert (retain, qos) == (True, 1)
+
+    callback = lambda *_: None
+    discovery.subscribe_led_commands(target, 42, callback)
+    assert mqtt.subscriptions[-1][0].endswith("/led/42/set")
+    discovery.publish_led_state(target, 42, {"state": "ON"})
+    assert mqtt.published[-1][0].endswith("/led/42/state")

@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
+from pathlib import Path
 
 from homecue.config import HomeCueConfig
 from homecue.const import EFFECT_STATIC, PROFILE_NONE
@@ -15,6 +16,7 @@ from homecue.icue.devices import CorsairDevice
 from homecue.icue.profiles import ProfileManager
 from homecue.mqtt.client import MqttClient
 from homecue.mqtt.discovery import HaDiscovery
+from homecue.inventory import InventoryStore
 
 log = logging.getLogger(__name__)
 
@@ -22,11 +24,12 @@ log = logging.getLogger(__name__)
 class HomeCueService:
     """Orchestrates the iCUE-to-Home-Assistant bridge."""
 
-    def __init__(self, config: HomeCueConfig) -> None:
+    def __init__(self, config: HomeCueConfig, status_path: str | Path | None = None) -> None:
         self._config = config
         self._running = False
         self._devices: dict[str, CorsairDevice] = {}
         self._lock = threading.Lock()
+        self._inventory_store = InventoryStore(status_path) if status_path else None
 
         # iCUE bridge
         self._bridge = IcueBridge(
@@ -40,6 +43,7 @@ class HomeCueService:
             port=config.mqtt.port,
             username=config.mqtt.username,
             password=config.mqtt.password,
+            tls=config.mqtt.tls,
             client_id=config.mqtt.client_id,
         )
 
@@ -47,6 +51,7 @@ class HomeCueService:
         self._discovery = HaDiscovery(
             mqtt_client=self._mqtt,
             discovery_prefix=config.mqtt.discovery_prefix,
+            suggested_area=config.suggested_area,
         )
 
         # Effects engine
@@ -143,12 +148,17 @@ class HomeCueService:
             # Remove HA discovery entries
             with self._lock:
                 for device in self._devices.values():
+                    if self._config.expose_individual_leds:
+                        for led_id in device.led_ids:
+                            self._discovery.remove_led_discovery(device, led_id)
                     self._discovery.remove_discovery(device)
 
             self._mqtt.disconnect()
             self._started = False
 
         self._bridge.disconnect()
+        if self._inventory_store:
+            self._inventory_store.write([], connected=False)
         log.info("HomeCue stopped")
 
     def _discover_and_publish(self) -> None:
@@ -163,6 +173,9 @@ class HomeCueService:
 
             self._devices = {d.device_id: d for d in discovered}
 
+        self._discovery.publish_inventory(discovered)
+        if self._inventory_store:
+            self._inventory_store.write(discovered, connected=True)
         if not discovered:
             log.warning("No Corsair devices found. Check iCUE and device connections.")
             return
@@ -181,6 +194,15 @@ class HomeCueService:
 
             # Publish initial state
             self._discovery.publish_state(device)
+
+            if self._config.expose_individual_leds:
+                for led_id in device.led_ids:
+                    self._discovery.publish_led_discovery(device, led_id)
+                    self._discovery.subscribe_led_commands(
+                        device, led_id,
+                        lambda topic, payload, dev=device, lid=led_id: self._handle_led_command(dev, lid, payload),
+                    )
+                    self._discovery.publish_led_state(device, led_id, device.to_state_payload())
 
             # Apply initial color via bridge
             r, g, b = device.effective_color
@@ -227,6 +249,20 @@ class HomeCueService:
         self._discovery.publish_sync_state(
             group_id, device.r, device.g, device.b, device.brightness, device.is_on
         )
+
+    def _handle_led_command(self, device: CorsairDevice, led_id: int, payload: dict | str) -> None:
+        """Apply an independent LED command without changing device-wide state."""
+        if not isinstance(payload, dict):
+            return
+        color = payload.get("color", {})
+        brightness = max(0, min(255, int(payload.get("brightness", 255))))
+        is_on = payload.get("state", "ON") == "ON"
+        scale = brightness / 255.0 if is_on else 0.0
+        r = max(0, min(255, int(color.get("r", 255))))
+        g = max(0, min(255, int(color.get("g", 255))))
+        b = max(0, min(255, int(color.get("b", 255))))
+        self._bridge.set_led_color(device.device_id, led_id, int(r * scale), int(g * scale), int(b * scale))
+        self._discovery.publish_led_state(device, led_id, {"state": "ON" if is_on else "OFF", "brightness": brightness, "color_mode": "rgb", "color": {"r": r, "g": g, "b": b}})
 
     def _sync_associated(self, device: CorsairDevice) -> None:
         """Sync the associated HA light/group entity with the device's current color."""

@@ -173,6 +173,18 @@ class IcueBridge:
 
         return True
 
+    def set_led_color(self, device_id: str, led_id: int, r: int, g: int, b: int) -> bool:
+        """Set one LED without changing the rest of the device."""
+        with self._lock:
+            device = self._devices.get(device_id)
+        if not device or led_id not in device.led_ids:
+            return False
+        err = self._sdk.set_led_colors(device_id, [CorsairLedColor(led_id, r, g, b, 255)])
+        if err != CorsairError.CE_Success:
+            log.error("Failed to set LED %d on %s: %s", led_id, device.name, err)
+            return False
+        return True
+
     def _on_session_state_changed(self, event: object) -> None:
         """Callback for iCUE connection state changes."""
         state = event.state
