@@ -39,7 +39,7 @@ def _pause_console() -> None:
             pass
 
 
-def _setup_logging(level_name: str, tray_mode: bool) -> None:
+def _setup_logging(level_name: str, tray_mode: bool, log_file: str = _LOG_FILE) -> None:
     """Configure logging with file handler (always) and console handler (if not tray)."""
     import logging
 
@@ -51,7 +51,7 @@ def _setup_logging(level_name: str, tray_mode: bool) -> None:
     root = logging.getLogger()
     root.setLevel(level)
 
-    file_handler = logging.FileHandler(_LOG_FILE, encoding="utf-8")
+    file_handler = logging.FileHandler(log_file, encoding="utf-8")
     file_handler.setLevel(level)
     file_handler.setFormatter(fmt)
     root.addHandler(file_handler)
@@ -69,9 +69,6 @@ def main() -> None:
     import signal
 
     from homecue import __version__
-    from homecue.config import load_config
-    from homecue.core import HomeCueService
-
     parser = argparse.ArgumentParser(
         prog="homecue",
         description="Bridge Corsair iCUE RGB lighting to Home Assistant via MQTT",
@@ -93,10 +90,21 @@ def main() -> None:
         action="store_true",
         help="Run minimized to the system tray (Windows)",
     )
+    parser.add_argument(
+        "--no-pause",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
     args = parser.parse_args()
 
+    # Keep dependency-heavy Windows SDK imports after argument parsing so
+    # `homecue --help` and `homecue --version` work on any platform.
+    from homecue.config import load_config
+    from homecue.core import HomeCueService
+
     config = load_config(args.config)
-    _setup_logging(config.log_level, tray_mode=args.tray)
+    log_file = os.path.join(os.path.dirname(os.path.abspath(args.config)), "homecue.log")
+    _setup_logging(config.log_level, tray_mode=args.tray, log_file=log_file)
 
     service = HomeCueService(config)
 
@@ -119,7 +127,8 @@ def main() -> None:
             logging.getLogger(__name__).exception("Fatal error")
         finally:
             service.shutdown()
-            _pause_console()
+            if not args.no_pause:
+                _pause_console()
 
 
 def _entry() -> None:

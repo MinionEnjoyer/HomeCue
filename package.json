@@ -1,0 +1,14 @@
+{
+  "name": "homecue-workspace",
+  "private": true,
+  "version": "0.2.0",
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "dev": "npm --workspace @homecue/web run dev",
+    "build": "npm --workspace @homecue/web run build",
+    "desktop:dev": "npm --workspace @homecue/desktop run dev",
+    "desktop:build": "npm --workspace @homecue/desktop run build",
+    "typecheck": "npm --workspace @homecue/web run typecheck",
+    "test": "npm --workspace @homecue/web run test"
+  }
+}
