@@ -21,6 +21,7 @@ class MqttConfig:
     port: int = DEFAULT_MQTT_PORT
     username: str | None = None
     password: str | None = None
+    tls: bool = False
     discovery_prefix: str = "homeassistant"
     client_id: str = "homecue"
 
@@ -70,6 +71,7 @@ def load_config(path: str | Path) -> HomeCueConfig:
         port=mqtt_raw.get("port", MqttConfig.port),
         username=mqtt_raw.get("username"),
         password=mqtt_raw.get("password"),
+        tls=mqtt_raw.get("tls", False),
         discovery_prefix=mqtt_raw.get("discovery_prefix", MqttConfig.discovery_prefix),
         client_id=mqtt_raw.get("client_id", MqttConfig.client_id),
     )

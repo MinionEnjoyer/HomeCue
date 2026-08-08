@@ -43,6 +43,7 @@ class HomeCueService:
             port=config.mqtt.port,
             username=config.mqtt.username,
             password=config.mqtt.password,
+            tls=config.mqtt.tls,
             client_id=config.mqtt.client_id,
         )
 

@@ -15,8 +15,15 @@
   },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "targets": ["nsis"],
     "externalBin": ["binaries/homecue-service"],
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico", "icons/icon.png"]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDEwRDY0NTM0Q0VCRDE5RjUKUldUMUdiM09ORVhXRU01WnQ0QUIxZS9xRTQyVEJrY2JGUjFGMTRnbUZMMWtQaThoYy9FblYrKzcK",
+      "endpoints": ["https://github.com/MinionEnjoyer/HomeCue/releases/latest/download/latest.json"]
+    }
   }
 }

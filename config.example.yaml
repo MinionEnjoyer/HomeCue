@@ -6,6 +6,7 @@ mqtt:
   port: 1883
   username: "mqtt_user"        # Optional: remove if no auth
   password: "mqtt_password"    # Optional: remove if no auth
+  tls: false                    # Set true for a TLS-enabled broker
   discovery_prefix: "homeassistant"
   client_id: "homecue"
 

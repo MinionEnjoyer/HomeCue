@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
-import { saveSettings } from "./bridge";
+import { checkForUpdates, installUpdate, pairHomeAssistant, saveSettings } from "./bridge";
 
 vi.mock("./bridge", async (loadOriginal) => {
   const original = await loadOriginal<typeof import("./bridge")>();
@@ -12,6 +12,9 @@ vi.mock("./bridge", async (loadOriginal) => {
     getServiceStatus: vi.fn().mockResolvedValue({ running: false, pid: null, message: "Ready" }),
     loadInventory: vi.fn().mockResolvedValue({ connected: true, count: 1, devices: [{ id: "homecue_1", name: "Commander", model: "Commander", type: "LED Controller", ledCount: 2, capabilities: ["lighting", "individual-leds"] }] }),
     saveSettings: vi.fn().mockResolvedValue(undefined),
+    pairHomeAssistant: vi.fn().mockResolvedValue({ ...original.defaults, mqttHost: "homeassistant.local", mqttUsername: "addons", mqttPassword: "paired" }),
+    checkForUpdates: vi.fn().mockResolvedValue(null),
+    installUpdate: vi.fn().mockResolvedValue(undefined),
     startService: vi.fn().mockResolvedValue({ running: true, pid: 42, message: "Running" }),
     stopService: vi.fn().mockResolvedValue({ running: false, pid: null, message: "Stopped" }),
   };
@@ -29,12 +32,31 @@ describe("HomeCue control center", () => {
     expect(screen.getByRole("spinbutton", { name: "Port" })).toHaveValue(1883);
   });
 
+  it("pairs automatically using the companion code", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Connections" }));
+    await user.type(screen.getByRole("textbox", { name: "One-time pairing code" }), "ABCD-EFGH-JKLM-NPQR");
+    await user.click(screen.getByRole("button", { name: "Connect automatically" }));
+    expect(pairHomeAssistant).toHaveBeenCalledWith("http://homeassistant.local:8098", "ABCD-EFGH-JKLM-NPQR");
+    expect(await screen.findByText("Home Assistant and MQTT are configured")).toBeVisible();
+  });
+
   it("starts the service and reports its running state", async () => {
     const user = userEvent.setup();
     render(<App />);
     await user.click(await screen.findByRole("button", { name: "Start" }));
     expect(await screen.findByText("Service online")).toBeVisible();
     expect(screen.getByText("PID 42")).toBeVisible();
+  });
+
+  it("offers and installs a signed app update", async () => {
+    vi.mocked(checkForUpdates).mockResolvedValueOnce({ version: "0.3.0", notes: "Automatic updates" });
+    const user = userEvent.setup();
+    render(<App />);
+    expect(await screen.findByText("HomeCue 0.3.0 is ready")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Install and restart" }));
+    expect(installUpdate).toHaveBeenCalledOnce();
   });
 
   it("edits and saves connection settings", async () => {
