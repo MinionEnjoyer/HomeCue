@@ -109,7 +109,10 @@ fn status_from(process: &mut Option<Child>) -> ServiceStatus {
 }
 
 #[tauri::command]
-fn service_status(state: State<'_, ServiceProcess>) -> Result<ServiceStatus, String> { Ok(status_from(&mut state.0.lock().map_err(|_| "Service lock poisoned")?)) }
+fn service_status(state: State<'_, ServiceProcess>) -> Result<ServiceStatus, String> {
+    let mut process = state.0.lock().map_err(|_| "Service lock poisoned")?;
+    Ok(status_from(&mut process))
+}
 
 #[tauri::command]
 fn start_service(app: AppHandle, state: State<'_, ServiceProcess>) -> Result<ServiceStatus, String> {
