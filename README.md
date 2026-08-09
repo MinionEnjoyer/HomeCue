@@ -3,7 +3,7 @@
 </p>
 
 # HomeCue
-
+# NOTICE: iCue Device Enumeration is currently BROKEN.  This software won't work until Corsair fixes it.
 A Windows bridge and control center for bringing Corsair iCUE lighting into Home Assistant. HomeCue
 discovers supported Corsair hardware through the iCUE SDK, publishes native Home Assistant entities
 through MQTT discovery, and keeps device state, colors, effects, and profiles synchronized from one
