@@ -12,9 +12,13 @@ desktop application.
 The project includes a React control center, a Tauri v2 Windows client, a bundled Python service,
 and a Home Assistant companion app for encrypted one-time MQTT provisioning.
 
-> **Current development release:** desktop and service **0.2.0**. Windows installers produced from
-> branch builds are available as GitHub Actions artifacts. Versioned `desktop-vX.Y.Z` releases use
-> signed in-app updates so users only need to run the installer once.
+<p align="center">
+  <strong><a href="https://github.com/MinionEnjoyer/HomeCue/releases/latest">Download the HomeCue Windows client</a></strong>
+</p>
+
+> **Current release:** desktop and service **0.3.15**. The Windows installer is available from the
+> [latest release](https://github.com/MinionEnjoyer/HomeCue/releases/latest). Versioned
+> `desktop-vX.Y.Z` releases include signed in-app updates so users only need to run the installer once.
 
 ## Support
 
@@ -110,8 +114,8 @@ Requirements:
 - HomeCue and iCUE running at the same Windows privilege level.
 
 Development branch installers can be downloaded from the latest successful **Desktop build** workflow.
-Published releases are available from the
-[GitHub Releases](https://github.com/MinionEnjoyer/HomeCue/releases) page.
+Published releases and the recommended installer are available from the
+[HomeCue Windows client download](https://github.com/MinionEnjoyer/HomeCue/releases/latest).
 
 ## One-click Home Assistant setup
 
@@ -161,15 +165,17 @@ npm run build
 ```
 
 The Python suite covers configuration, devices, discovery payloads, effects, inventory, CLI behavior,
-and the encrypted companion pairing protocol. React tests cover navigation, configuration, service
-control, consolidated inventory, automatic pairing, and the signed-update interface.
+the encrypted companion pairing protocol, and a hardware-free iCUE SDK contract. React tests cover
+navigation, configuration, service control, consolidated inventory, automatic pairing, and the
+signed-update interface. Rust unit tests cover pairing URL normalization, service status, log handling,
+and safe desktop defaults.
 
 GitHub Actions runs:
 
 - **Quality** on every push and pull request: Python tests, React tests, TypeScript, and production web
   build.
-- **Desktop build** on every branch push: frozen Python sidecar, Tauri compilation, NSIS packaging, and
-  a downloadable Windows installer artifact.
+- **Desktop build** on every branch push: frozen Python sidecar, Rust/Tauri tests, Tauri compilation,
+  NSIS packaging, and a downloadable Windows installer artifact.
 - **Windows release** on `desktop-vX.Y.Z` tags: signed updater artifacts, a draft GitHub Release, and
   `latest.json` for installed clients.
 
