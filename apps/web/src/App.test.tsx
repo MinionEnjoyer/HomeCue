@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
-import { checkForUpdates, installUpdate, pairHomeAssistant, saveSettings } from "./bridge";
+import { checkForUpdates, installUpdate, pairHomeAssistant, saveSettings, startService } from "./bridge";
 
 vi.mock("./bridge", async (loadOriginal) => {
   const original = await loadOriginal<typeof import("./bridge")>();
@@ -23,11 +23,11 @@ vi.mock("./bridge", async (loadOriginal) => {
 describe("HomeCue control center", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("shows connection defaults and navigates to editable connection settings", async () => {
+  it("keeps manual connection fields in settings", async () => {
     const user = userEvent.setup();
     render(<App />);
     expect(await screen.findByText("localhost:1883")).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Connections" }));
+    await user.click(screen.getByRole("button", { name: "Settings" }));
     expect(screen.getByRole("textbox", { name: "Host" })).toHaveValue("localhost");
     expect(screen.getByRole("spinbutton", { name: "Port" })).toHaveValue(1883);
   });
@@ -35,11 +35,11 @@ describe("HomeCue control center", () => {
   it("pairs automatically using the companion code", async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole("button", { name: "Connections" }));
-    await user.type(screen.getByRole("textbox", { name: "One-time pairing code" }), "ABCD-EFGH-JKLM-NPQR");
-    await user.click(screen.getByRole("button", { name: "Connect automatically" }));
+    await user.type(screen.getByRole("textbox", { name: "Pairing code" }), "ABCD-EFGH-JKLM-NPQR");
+    await user.click(screen.getByRole("button", { name: "Connect and start" }));
     expect(pairHomeAssistant).toHaveBeenCalledWith("http://homeassistant.local:8098", "ABCD-EFGH-JKLM-NPQR");
-    expect(await screen.findByText("Home Assistant and MQTT are configured")).toBeVisible();
+    expect(startService).toHaveBeenCalledOnce();
+    expect(await screen.findByText("HomeCue is paired and running")).toBeVisible();
   });
 
   it("starts the service and reports its running state", async () => {
@@ -62,7 +62,7 @@ describe("HomeCue control center", () => {
   it("edits and saves connection settings", async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole("button", { name: "Connections" }));
+    await user.click(screen.getByRole("button", { name: "Settings" }));
     const host = screen.getByRole("textbox", { name: "Host" });
     await user.clear(host);
     await user.type(host, "mqtt.home");
@@ -74,7 +74,7 @@ describe("HomeCue control center", () => {
   it("shows the runtime controls with safe defaults", async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByRole("button", { name: "Runtime" }));
+    await user.click(screen.getByRole("button", { name: "Settings" }));
     expect(screen.getByRole("spinbutton", { name: "Polling interval (seconds)" })).toHaveValue(2);
     expect(screen.getByRole("spinbutton", { name: "Effects frame rate" })).toHaveValue(30);
     expect(screen.getByRole("combobox", { name: "Log level" })).toHaveValue("INFO");

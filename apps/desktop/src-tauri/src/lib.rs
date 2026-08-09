@@ -5,7 +5,7 @@ use pbkdf2::pbkdf2_hmac;
 use serde::{Deserialize, Serialize};
 use serde_yaml::{Mapping, Value};
 use sha2::Sha256;
-use std::{fs, path::PathBuf, process::{Child, Command, Stdio}, sync::Mutex};
+use std::{fs, fs::OpenOptions, path::PathBuf, process::{Child, Command, Stdio}, sync::Mutex, thread, time::Duration};
 use tauri::{menu::{Menu, MenuItem}, tray::TrayIconBuilder, AppHandle, Manager, State, WindowEvent};
 
 #[derive(Default)]
@@ -196,9 +196,19 @@ fn start_service(app: AppHandle, state: State<'_, ServiceProcess>) -> Result<Ser
         cmd
     };
     let inventory = inventory_path(&app)?;
-    let child = command.args(["--config"]).arg(&cfg).arg("--status-file").arg(&inventory).arg("--no-pause")
-        .stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).spawn()
+    let log_path = cfg.with_file_name("homecue-service.log");
+    let log = OpenOptions::new().create(true).append(true).open(&log_path)
+        .map_err(|e| format!("Could not open the HomeCue service log: {e}"))?;
+    let log_err = log.try_clone().map_err(|e| e.to_string())?;
+    let mut child = command.args(["--config"]).arg(&cfg).arg("--status-file").arg(&inventory).arg("--no-pause")
+        .stdin(Stdio::null()).stdout(Stdio::from(log)).stderr(Stdio::from(log_err)).spawn()
         .map_err(|e| format!("Could not start the HomeCue service: {e}"))?;
+    thread::sleep(Duration::from_millis(500));
+    if let Some(code) = child.try_wait().map_err(|e| e.to_string())? {
+        let details = fs::read_to_string(&log_path).unwrap_or_default();
+        let tail = details.lines().rev().take(8).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\n");
+        return Err(if tail.is_empty() { format!("HomeCue exited during startup with {code}") } else { format!("HomeCue could not start:\n{tail}") });
+    }
     let pid = child.id(); *process = Some(child);
     Ok(ServiceStatus { running: true, pid: Some(pid), message: "HomeCue is running".into() })
 }
