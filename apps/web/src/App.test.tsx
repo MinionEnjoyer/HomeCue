@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
-import { checkForUpdates, installUpdate, pairHomeAssistant, saveSettings, startService } from "./bridge";
+import { checkForUpdates, installUpdate, loadInventory, pairHomeAssistant, saveSettings, startService } from "./bridge";
 
 vi.mock("./bridge", async (loadOriginal) => {
   const original = await loadOriginal<typeof import("./bridge")>();
@@ -102,5 +102,7 @@ describe("HomeCue control center", () => {
     expect(await screen.findByRole("heading", { name: "1 detected device" })).toBeVisible();
     expect(screen.getByText("Commander · LED Controller")).toBeVisible();
     expect(screen.getByText("2 LEDs")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Scan for devices" }));
+    expect(loadInventory).toHaveBeenCalledTimes(2);
   });
 });

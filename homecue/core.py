@@ -117,8 +117,15 @@ class HomeCueService:
 
         # 6. Main loop
         log.info("HomeCue is running. Press Ctrl+C to stop.")
+        last_device_scan = time.monotonic()
         try:
             while self._running:
+                with self._lock:
+                    has_devices = bool(self._devices)
+                if not has_devices and time.monotonic() - last_device_scan >= 10:
+                    log.info("No iCUE devices reported; rescanning")
+                    self._discover_and_publish()
+                    last_device_scan = time.monotonic()
                 self._publish_all_states()
                 time.sleep(self._config.poll_interval)
         except KeyboardInterrupt:
