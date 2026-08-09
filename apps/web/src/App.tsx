@@ -22,7 +22,16 @@ export default function App() {
   const [pairingCode, setPairingCode] = useState("");
   const [appUpdate, setAppUpdate] = useState<AppUpdate | null>(null);
 
-  useEffect(() => { void Promise.all([loadSettings().then(setSettings), refresh(), checkForUpdates().then(setAppUpdate).catch(() => null)]); }, []);
+  useEffect(() => { void (async () => {
+    const saved = await loadSettings();
+    setSettings(saved);
+    const [nextStatus, nextInventory, nextIcue] = await Promise.all([getServiceStatus(), loadInventory(), getIcueStatus()]);
+    setInventory(nextInventory); setIcue(nextIcue);
+    if (!nextStatus.running && saved.mqttUsername && saved.mqttPassword) {
+      try { setStatus(await startService()); } catch (e) { setStatus({ running: false, pid: null, message: String(e) }); }
+    } else setStatus(nextStatus);
+    setAppUpdate(await checkForUpdates().catch(() => null));
+  })(); }, []);
   useEffect(() => { const id = window.setInterval(() => void refresh(), 4000); return () => clearInterval(id); }, []);
   useEffect(() => { if (!notice) return; const id = window.setTimeout(() => setNotice(""), 3200); return () => window.clearTimeout(id); }, [notice]);
   const refresh = async () => { try { const [nextStatus, nextInventory, nextIcue] = await Promise.all([getServiceStatus(), loadInventory(), getIcueStatus()]); setStatus(nextStatus); setInventory(nextInventory); setIcue(nextIcue); } catch (e) { setStatus({ running: false, pid: null, message: String(e) }); } };
@@ -50,7 +59,7 @@ export default function App() {
       {notice && <div className="notice"><Check size={16}/>{notice}</div>}
       {tab === "overview" && <>
         {appUpdate && <section className="update-card"><div><DownloadCloud size={20}/><div><strong>HomeCue {appUpdate.version} is ready</strong><span>{appUpdate.notes || "A signed Windows update is available."}</span></div></div><button className="primary" disabled={busy} onClick={updateApp}>Install and restart</button></section>}
-        {!status.running && <section className="panel quick-setup"><div className="panel-title"><div className="icon cyan"><Link/></div><div><h2>Connect HomeCue</h2><p>Enter the one-time code from the HomeCue Companion in Home Assistant.</p></div></div><div className="code-setup"><Field label="Pairing code"><input className="pairing-code" autoFocus autoComplete="one-time-code" inputMode="text" maxLength={19} placeholder="XXXX-XXXX-XXXX-XXXX" value={pairingCode} onChange={e => setPairingCode(formatPairingCode(e.target.value))}/></Field><button className="primary" disabled={busy || pairingCode.replace(/-/g, "").length !== 16} onClick={pair}><Play size={16}/>{busy ? "Starting…" : "Connect and start"}</button></div><small className="setup-hint">HomeCue configures MQTT and starts automatically. Advanced connection options are in Settings.</small></section>}
+        {!status.running && !(settings.mqttUsername && settings.mqttPassword) && <section className="panel quick-setup"><div className="panel-title"><div className="icon cyan"><Link/></div><div><h2>Connect HomeCue</h2><p>Enter the one-time code from the HomeCue Companion in Home Assistant.</p></div></div><div className="code-setup"><Field label="Pairing code"><input className="pairing-code" autoFocus autoComplete="one-time-code" inputMode="text" maxLength={19} placeholder="XXXX-XXXX-XXXX-XXXX" value={pairingCode} onChange={e => setPairingCode(formatPairingCode(e.target.value))}/></Field><button className="primary" disabled={busy || pairingCode.replace(/-/g, "").length !== 16} onClick={pair}><Play size={16}/>{busy ? "Starting…" : "Connect and start"}</button></div><small className="setup-hint">The code is used once. HomeCue securely saves the broker connection and reconnects automatically afterward.</small></section>}
         <section className="service-card"><div><span className={`service-dot ${status.running ? "online" : ""}`}/><div><h2>{status.running ? "HomeCue is running" : "HomeCue is stopped"}</h2><p>{status.running ? `Connected process${status.pid ? ` · PID ${status.pid}` : ""}` : status.message}</p></div></div><div className="actions"><button className={status.running ? "danger" : "primary"} onClick={toggleService} disabled={busy}>{status.running ? <><Square size={16}/>Stop</> : <><Play size={16}/>Start</>}</button><button className="secondary" aria-label="Refresh status" onClick={refresh}><RotateCw size={16}/></button></div></section>
         <section className="cards">
           <article><div className="icon cyan"><Wifi/></div><span>MQTT broker</span><strong>{settings.mqttHost}:{settings.mqttPort}</strong><small>{settings.mqttUsername ? `Signed in as ${settings.mqttUsername}` : "Anonymous connection"}</small></article>

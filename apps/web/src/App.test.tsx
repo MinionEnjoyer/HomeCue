@@ -47,6 +47,15 @@ describe("HomeCue control center", () => {
     expect(await screen.findByText("HomeCue is paired and running")).toBeVisible();
   });
 
+  it("reuses saved pairing credentials and starts automatically", async () => {
+    const bridge = await import("./bridge");
+    vi.mocked(bridge.loadSettings).mockResolvedValueOnce({ ...bridge.defaults, mqttUsername: "addons", mqttPassword: "saved" });
+    render(<App />);
+    expect(await screen.findByText("Service online")).toBeVisible();
+    expect(startService).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("textbox", { name: "Pairing code" })).not.toBeInTheDocument();
+  });
+
   it("starts the service and reports its running state", async () => {
     const user = userEvent.setup();
     render(<App />);
