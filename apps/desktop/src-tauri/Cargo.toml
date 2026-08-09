@@ -1,6 +1,6 @@
 [package]
 name = "homecue-desktop"
-version = "0.3.11"
+version = "0.3.12"
 description = "HomeCue desktop control center"
 authors = ["HomeCue contributors"]
 edition = "2021"

@@ -83,6 +83,15 @@ describe("HomeCue control center", () => {
     expect(stopService).toHaveBeenCalledBefore(vi.mocked(installUpdate));
   });
 
+  it("clears untracked service processes before installing an update", async () => {
+    vi.mocked(checkForUpdates).mockResolvedValueOnce({ version: "0.4.0", notes: "Update" });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "Install and restart" }));
+    expect(stopService).toHaveBeenCalledOnce();
+    expect(stopService).toHaveBeenCalledBefore(vi.mocked(installUpdate));
+  });
+
   it("checks for updates from settings without restarting", async () => {
     vi.mocked(checkForUpdates).mockResolvedValueOnce(null).mockResolvedValueOnce({ version: "0.4.0", notes: "Latest build" });
     const user = userEvent.setup();

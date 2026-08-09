@@ -302,6 +302,8 @@ fn start_service(app: AppHandle, state: State<'_, ServiceProcess>) -> Result<Ser
 fn stop_service(state: State<'_, ServiceProcess>) -> Result<ServiceStatus, String> {
     let mut process = state.0.lock().map_err(|_| "Service lock poisoned")?;
     stop_child(&mut process)?;
+    #[cfg(windows)]
+    stop_stale_sidecars();
     Ok(ServiceStatus { running: false, pid: None, message: "Stopped".into() })
 }
 
