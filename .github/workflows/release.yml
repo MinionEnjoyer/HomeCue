@@ -30,7 +30,10 @@ jobs:
         shell: pwsh
         run: |
           python -m pip install . pyinstaller
-          pyinstaller --clean --noconfirm --onefile --noconsole --name homecue-service homecue/__main__.py
+          pyinstaller --clean --noconfirm --onefile --noconsole --collect-all cuesdk --name homecue-service homecue/__main__.py
+          if (-not (Select-String -Path build/homecue-service/Analysis-00.toc -Pattern "iCUESDK.x64_2019.dll" -Quiet)) {
+            throw "Corsair iCUE SDK DLL was not collected into the service bundle"
+          }
           New-Item -ItemType Directory -Force apps/desktop/src-tauri/binaries | Out-Null
           Copy-Item dist/homecue-service.exe apps/desktop/src-tauri/binaries/homecue-service-x86_64-pc-windows-msvc.exe
       - name: Build signed release and updater manifest
@@ -45,6 +48,6 @@ jobs:
           tagName: desktop-v__VERSION__
           releaseName: HomeCue __VERSION__
           releaseBody: Signed HomeCue Windows release. Existing installations will discover this update automatically.
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           updaterJsonPreferNsis: true
