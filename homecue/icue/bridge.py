@@ -29,6 +29,7 @@ _DEVICE_TYPE_NAMES = {
     256: "Cooler", 512: "Motherboard", 1024: "GPU",
     2048: "Touchbar", 4096: "Game Controller",
 }
+_DEVICE_TYPE_MASKS = tuple(mask for mask in _DEVICE_TYPE_NAMES if mask)
 
 
 class IcueBridge:
@@ -93,12 +94,37 @@ class IcueBridge:
             log.warning("Cannot discover devices: not connected to iCUE")
             return []
 
-        # 0xFFFFFFFF = CDT_All (all device types)
+        # Some iCUE 5 builds return an empty list for CDT_All even though
+        # category-specific filters expose devices. Try the efficient all-device
+        # query first, then fall back to each SDK device category.
         device_filter = CorsairDeviceFilter(device_type_mask=CorsairDeviceType.CDT_All)
         devices_raw, err = self._sdk.get_devices(device_filter)
         if err != CorsairError.CE_Success:
             log.error("Device enumeration failed: %s", err)
             return []
+
+        if not devices_raw:
+            by_id = {}
+            log.info("All-device SDK query returned no results; trying category filters")
+            for mask in _DEVICE_TYPE_MASKS:
+                category_devices, category_err = self._sdk.get_devices(
+                    CorsairDeviceFilter(device_type_mask=mask)
+                )
+                if category_err != CorsairError.CE_Success:
+                    log.warning(
+                        "iCUE %s query failed: %s",
+                        _DEVICE_TYPE_NAMES[mask],
+                        category_err,
+                    )
+                    continue
+                if category_devices:
+                    log.info(
+                        "iCUE reported %d %s device(s)",
+                        len(category_devices),
+                        _DEVICE_TYPE_NAMES[mask],
+                    )
+                    by_id.update({device.device_id: device for device in category_devices})
+            devices_raw = list(by_id.values())
 
         discovered = []
         for dev in devices_raw:
