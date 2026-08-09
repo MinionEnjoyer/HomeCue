@@ -8,6 +8,11 @@ use sha2::Sha256;
 use std::{fs, fs::OpenOptions, path::PathBuf, process::{Child, Command, Stdio}, sync::Mutex, thread, time::Duration};
 use tauri::{menu::{Menu, MenuItem}, tray::TrayIconBuilder, AppHandle, Manager, State, WindowEvent};
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+#[cfg(windows)]
+use windows_sys::Win32::System::Threading::CREATE_NO_WINDOW;
+
 #[derive(Default)]
 struct ServiceProcess(Mutex<Option<Child>>);
 
@@ -195,6 +200,8 @@ fn start_service(app: AppHandle, state: State<'_, ServiceProcess>) -> Result<Ser
         cmd.current_dir(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../.."));
         cmd
     };
+    #[cfg(windows)]
+    command.creation_flags(CREATE_NO_WINDOW);
     let inventory = inventory_path(&app)?;
     let log_path = cfg.with_file_name("homecue-service.log");
     let log = OpenOptions::new().create(true).append(true).open(&log_path)
