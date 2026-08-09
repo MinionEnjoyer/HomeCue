@@ -23,6 +23,7 @@ export type Settings = {
 export type ServiceStatus = { running: boolean; pid: number | null; message: string };
 export type InventoryDevice = { id: string; name: string; model: string; type: string; ledCount: number; capabilities: string[] };
 export type Inventory = { connected: boolean; count: number; devices: InventoryDevice[] };
+export type IcueStatus = { installed: boolean; running: boolean; active: boolean; message: string };
 export type AppUpdate = { version: string; notes: string };
 
 let pendingUpdate: Update | null = null;
@@ -72,6 +73,21 @@ export async function getServiceStatus(): Promise<ServiceStatus> {
 export async function loadInventory(): Promise<Inventory> {
   if (isTauri()) return invoke<Inventory>("load_inventory");
   return { connected: false, count: 0, devices: [] };
+}
+
+export async function getIcueStatus(): Promise<IcueStatus> {
+  if (isTauri()) return invoke<IcueStatus>("icue_status");
+  return { installed: false, running: false, active: false, message: "iCUE status is available in the Windows app" };
+}
+
+export async function launchIcue(): Promise<void> {
+  if (isTauri()) return invoke("launch_icue");
+  throw new Error("iCUE can be launched from the Windows app.");
+}
+
+export async function openIcueDownload(): Promise<void> {
+  if (isTauri()) return invoke("open_icue_download");
+  window.open("https://www.corsair.com/icue", "_blank", "noopener,noreferrer");
 }
 
 export async function startService(): Promise<ServiceStatus> {

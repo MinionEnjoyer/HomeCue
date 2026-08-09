@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
-import { checkForUpdates, installUpdate, loadInventory, pairHomeAssistant, saveSettings, startService, stopService } from "./bridge";
+import { checkForUpdates, getIcueStatus, installUpdate, launchIcue, loadInventory, openIcueDownload, pairHomeAssistant, saveSettings, startService, stopService } from "./bridge";
 
 vi.mock("./bridge", async (loadOriginal) => {
   const original = await loadOriginal<typeof import("./bridge")>();
@@ -11,6 +11,9 @@ vi.mock("./bridge", async (loadOriginal) => {
     loadSettings: vi.fn().mockResolvedValue(original.defaults),
     getServiceStatus: vi.fn().mockResolvedValue({ running: false, pid: null, message: "Ready" }),
     loadInventory: vi.fn().mockResolvedValue({ connected: true, count: 1, devices: [{ id: "homecue_1", name: "Commander", model: "Commander", type: "LED Controller", ledCount: 2, capabilities: ["lighting", "individual-leds"] }] }),
+    getIcueStatus: vi.fn().mockResolvedValue({ installed: true, running: true, active: true, message: "iCUE is detected and active" }),
+    launchIcue: vi.fn().mockResolvedValue(undefined),
+    openIcueDownload: vi.fn().mockResolvedValue(undefined),
     saveSettings: vi.fn().mockResolvedValue(undefined),
     pairHomeAssistant: vi.fn().mockResolvedValue({ ...original.defaults, mqttHost: "homeassistant.local", mqttUsername: "addons", mqttPassword: "paired" }),
     checkForUpdates: vi.fn().mockResolvedValue(null),
@@ -114,5 +117,24 @@ describe("HomeCue control center", () => {
     expect(screen.getByText("2 LEDs")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Scan for devices" }));
     expect(loadInventory).toHaveBeenCalledTimes(2);
+  });
+
+  it("offers to launch a detected iCUE installation", async () => {
+    vi.mocked(getIcueStatus).mockResolvedValue({ installed: true, running: false, active: false, message: "iCUE is installed but not running" });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Devices" }));
+    expect(await screen.findByText("iCUE is installed but not running")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Launch iCUE" }));
+    expect(launchIcue).toHaveBeenCalledOnce();
+  });
+
+  it("directs users to install iCUE when it is missing", async () => {
+    vi.mocked(getIcueStatus).mockResolvedValue({ installed: false, running: false, active: false, message: "iCUE is not installed" });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Devices" }));
+    await user.click(await screen.findByRole("button", { name: "Download iCUE" }));
+    expect(openIcueDownload).toHaveBeenCalledOnce();
   });
 });

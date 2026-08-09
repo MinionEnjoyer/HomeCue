@@ -67,6 +67,59 @@ impl Default for Settings {
 #[derive(Serialize)]
 struct ServiceStatus { running: bool, pid: Option<u32>, message: String }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct IcueStatus { installed: bool, running: bool, active: bool, message: String }
+
+#[cfg(windows)]
+fn icue_install_path() -> Option<PathBuf> {
+    let roots = [std::env::var_os("ProgramFiles"), std::env::var_os("ProgramFiles(x86)")];
+    let names = ["CORSAIR iCUE 5 Software", "CORSAIR iCUE 4 Software"];
+    roots.into_iter().flatten().flat_map(|root| names.map(move |name| PathBuf::from(&root).join("Corsair").join(name).join("iCUE.exe"))).find(|path| path.exists())
+}
+
+#[cfg(not(windows))]
+fn icue_install_path() -> Option<PathBuf> { None }
+
+#[cfg(windows)]
+fn icue_is_running() -> bool {
+    let mut command = Command::new("tasklist");
+    command.args(["/FI", "IMAGENAME eq iCUE.exe", "/NH"]).creation_flags(CREATE_NO_WINDOW);
+    command.output().map(|output| String::from_utf8_lossy(&output.stdout).to_ascii_lowercase().contains("icue.exe")).unwrap_or(false)
+}
+
+#[cfg(not(windows))]
+fn icue_is_running() -> bool { false }
+
+#[tauri::command]
+fn icue_status(app: AppHandle) -> Result<IcueStatus, String> {
+    let installed = icue_install_path().is_some();
+    let running = icue_is_running();
+    let active = running && load_inventory(app)?.get("connected").and_then(serde_json::Value::as_bool).unwrap_or(false);
+    let message = if active { "iCUE is detected and active" } else if running { "iCUE is running, but its SDK is not connected" } else if installed { "iCUE is installed but not running" } else { "iCUE is not installed" }.into();
+    Ok(IcueStatus { installed, running, active, message })
+}
+
+#[tauri::command]
+fn launch_icue() -> Result<(), String> {
+    let path = icue_install_path().ok_or("iCUE is not installed in a standard location")?;
+    let mut command = Command::new(path);
+    #[cfg(windows)]
+    command.creation_flags(CREATE_NO_WINDOW);
+    command.spawn().map(|_| ()).map_err(|e| format!("Could not launch iCUE: {e}"))
+}
+
+#[tauri::command]
+fn open_icue_download() -> Result<(), String> {
+    #[cfg(windows)] {
+        let mut command = Command::new("cmd");
+        command.args(["/C", "start", "", "https://www.corsair.com/icue"]).creation_flags(CREATE_NO_WINDOW);
+        return command.spawn().map(|_| ()).map_err(|e| format!("Could not open the iCUE download page: {e}"));
+    }
+    #[cfg(not(windows))]
+    Err("The iCUE download is available for Windows".into())
+}
+
 fn config_path(app: &AppHandle) -> Result<PathBuf, String> {
     app.path().app_config_dir().map(|p| p.join("config.yaml")).map_err(|e| e.to_string())
 }
@@ -259,7 +312,7 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(ServiceProcess::default())
-        .invoke_handler(tauri::generate_handler![load_settings, save_settings, pair_home_assistant, load_inventory, service_status, start_service, stop_service])
+        .invoke_handler(tauri::generate_handler![load_settings, save_settings, pair_home_assistant, load_inventory, icue_status, launch_icue, open_icue_download, service_status, start_service, stop_service])
         .setup(|app| {
             let open = MenuItem::with_id(app, "open", "Open HomeCue", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit HomeCue", true, None::<&str>)?;
