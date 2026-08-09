@@ -348,3 +348,62 @@ pub fn run() {
             }
         });
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_settings_are_safe_and_local() {
+        let settings = Settings::default();
+        assert_eq!(settings.mqtt_host, "localhost");
+        assert_eq!(settings.mqtt_port, 1883);
+        assert!(!settings.mqtt_tls);
+        assert!(!settings.exclusive_access);
+        assert_eq!(settings.effects_fps, 30);
+        assert_eq!(settings.suggested_area, "HomeCue");
+    }
+
+    #[test]
+    fn pairing_url_adds_companion_port_to_home_assistant_address() {
+        let url = pairing_base_url("http://homeassistant.local:8123/").unwrap();
+        assert_eq!(url.as_str(), "http://homeassistant.local:8098/");
+    }
+
+    #[test]
+    fn pairing_url_preserves_explicit_companion_port() {
+        let url = pairing_base_url("192.168.40.2:8098").unwrap();
+        assert_eq!(url.as_str(), "http://192.168.40.2:8098/");
+    }
+
+    #[test]
+    fn pairing_url_rejects_invalid_address() {
+        assert!(pairing_base_url("://not a host").is_err());
+    }
+
+    #[test]
+    fn log_tail_returns_only_the_last_eight_lines_in_order() {
+        let path = std::env::temp_dir().join(format!("homecue-log-tail-{}.log", std::process::id()));
+        let contents = (1..=12).map(|line| format!("line {line}")).collect::<Vec<_>>().join("\n");
+        fs::write(&path, contents).unwrap();
+        let tail = log_tail(&path);
+        let _ = fs::remove_file(path);
+        assert_eq!(tail.lines().next(), Some("line 5"));
+        assert_eq!(tail.lines().last(), Some("line 12"));
+        assert_eq!(tail.lines().count(), 8);
+    }
+
+    #[test]
+    fn missing_log_has_an_empty_tail() {
+        assert_eq!(log_tail(Path::new("a-log-file-that-does-not-exist.log")), "");
+    }
+
+    #[test]
+    fn idle_service_status_is_ready_to_start() {
+        let mut process = None;
+        let status = status_from(&mut process, None);
+        assert!(!status.running);
+        assert_eq!(status.pid, None);
+        assert_eq!(status.message, "Ready to start");
+    }
+}

@@ -16,6 +16,17 @@ dependencies = [
     "Pillow>=9.0",
 ]
 
+[project.optional-dependencies]
+test = [
+    "cryptography>=42.0",
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-markers"
+testpaths = ["tests"]
+
 [project.scripts]
 homecue = "homecue.__main__:_entry"
 

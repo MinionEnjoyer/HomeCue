@@ -28,6 +28,9 @@ jobs:
           Copy-Item dist/homecue-service.exe apps/desktop/src-tauri/binaries/homecue-service-x86_64-pc-windows-msvc.exe
       - name: Typecheck and build web app
         run: npm run build
+      - name: Test Tauri service lifecycle helpers
+        working-directory: apps/desktop/src-tauri
+        run: cargo test --lib
       - name: Build NSIS installer
         run: npm run desktop:build
         env:

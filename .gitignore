@@ -12,6 +12,9 @@ apps/web/dist/
 *.tsbuildinfo
 apps/desktop/src-tauri/target/
 apps/desktop/src-tauri/binaries/
+/.coverage
+/coverage.xml
+/test-results/
 /config.yaml
 homecue.log
 .claude/
