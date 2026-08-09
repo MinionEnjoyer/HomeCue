@@ -44,6 +44,8 @@ class IcueBridge:
         self._exclusive = exclusive
         self._on_devices_changed = on_devices_changed
         self._connected = threading.Event()
+        self._events_subscribed = False
+        self._announced_device_ids: set[str] = set()
         self._devices: dict[str, CorsairDevice] = {}
         self._lock = threading.Lock()
 
@@ -72,11 +74,6 @@ class IcueBridge:
                 details.server_version,
                 details.client_version,
             )
-
-        # Subscribe for hotplug events
-        err = self._sdk.subscribe_for_events(self._on_device_event)
-        if err != CorsairError.CE_Success:
-            log.warning("Could not subscribe to device events: %s", err)
 
         return True
 
@@ -125,6 +122,20 @@ class IcueBridge:
                     )
                     by_id.update({device.device_id: device for device in category_devices})
             devices_raw = list(by_id.values())
+
+        if not devices_raw and self._announced_device_ids:
+            log.info(
+                "Trying %d device ID(s) announced by iCUE events",
+                len(self._announced_device_ids),
+            )
+            announced = []
+            for device_id in tuple(self._announced_device_ids):
+                info, info_err = self._sdk.get_device_info(device_id)
+                if info_err == CorsairError.CE_Success and info:
+                    announced.append(info)
+                else:
+                    log.warning("Announced iCUE device %s is unavailable: %s", device_id, info_err)
+            devices_raw = announced
 
         discovered = []
         for dev in devices_raw:
@@ -210,6 +221,16 @@ class IcueBridge:
         log.debug("iCUE session state: %s", state)
 
         if state == CorsairSessionState.CSS_Connected:
+            # Subscribe inside the Connected callback. Corsair announces all
+            # currently connected devices immediately after this transition,
+            # so subscribing later can miss the initial device-ID events.
+            if not self._events_subscribed:
+                err = self._sdk.subscribe_for_events(self._on_device_event)
+                if err == CorsairError.CE_Success:
+                    self._events_subscribed = True
+                    log.info("Subscribed to iCUE device events")
+                else:
+                    log.warning("Could not subscribe to device events: %s", err)
             log.info("iCUE session connected")
             self._connected.set()
         elif state == CorsairSessionState.CSS_ConnectionLost:
@@ -228,5 +249,15 @@ class IcueBridge:
     def _on_device_event(self, event: object) -> None:
         """Callback for device connect/disconnect events."""
         log.info("Device event: %s", event)
-        if self._on_devices_changed:
+        data = getattr(event, "data", None)
+        device_id = getattr(data, "device_id", None)
+        is_connected = getattr(data, "is_connected", None)
+        if device_id and is_connected is True:
+            self._announced_device_ids.add(device_id)
+        elif device_id and is_connected is False:
+            self._announced_device_ids.discard(device_id)
+        # Initial events arrive before Core finishes MQTT startup; the normal
+        # initial discovery consumes the cached IDs. Notify Core for hotplug
+        # changes only after it already has an inventory.
+        if self._on_devices_changed and self._devices:
             self._on_devices_changed()
