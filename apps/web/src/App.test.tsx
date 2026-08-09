@@ -35,7 +35,9 @@ describe("HomeCue control center", () => {
   it("pairs automatically using the companion code", async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.type(screen.getByRole("textbox", { name: "Pairing code" }), "ABCD-EFGH-JKLM-NPQR");
+    const code = screen.getByRole("textbox", { name: "Pairing code" });
+    await user.type(code, "abcdefghjklmnpqr");
+    expect(code).toHaveValue("ABCD-EFGH-JKLM-NPQR");
     await user.click(screen.getByRole("button", { name: "Connect and start" }));
     expect(pairHomeAssistant).toHaveBeenCalledWith("http://homeassistant.local:8098", "ABCD-EFGH-JKLM-NPQR");
     expect(startService).toHaveBeenCalledOnce();

@@ -5,7 +5,7 @@ use pbkdf2::pbkdf2_hmac;
 use serde::{Deserialize, Serialize};
 use serde_yaml::{Mapping, Value};
 use sha2::Sha256;
-use std::{fs, fs::OpenOptions, path::PathBuf, process::{Child, Command, Stdio}, sync::Mutex, thread, time::Duration};
+use std::{fs, fs::OpenOptions, path::{Path, PathBuf}, process::{Child, Command, Stdio}, sync::Mutex, thread, time::Duration};
 use tauri::{menu::{Menu, MenuItem}, tray::TrayIconBuilder, AppHandle, Manager, State, WindowEvent};
 
 #[cfg(windows)]
@@ -172,23 +172,30 @@ fn pair_home_assistant(app: AppHandle, companion_url: String, pairing_code: Stri
     Ok(settings)
 }
 
-fn status_from(process: &mut Option<Child>) -> ServiceStatus {
+fn log_tail(path: &Path) -> String {
+    fs::read_to_string(path).unwrap_or_default().lines().rev().take(8)
+        .collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join("\n")
+}
+
+fn status_from(process: &mut Option<Child>, log_path: Option<&Path>) -> ServiceStatus {
     if let Some(child) = process.as_mut() {
-        match child.try_wait() { Ok(None) => return ServiceStatus { running: true, pid: Some(child.id()), message: "HomeCue is running".into() }, Ok(Some(code)) => { *process = None; return ServiceStatus { running: false, pid: None, message: format!("Exited with {code}") }; }, Err(e) => return ServiceStatus { running: false, pid: None, message: e.to_string() } }
+        match child.try_wait() { Ok(None) => return ServiceStatus { running: true, pid: Some(child.id()), message: "HomeCue is running".into() }, Ok(Some(code)) => { *process = None; let details = log_path.map(log_tail).unwrap_or_default(); return ServiceStatus { running: false, pid: None, message: if details.is_empty() { format!("Exited with {code}") } else { format!("HomeCue stopped:\n{details}") } }; }, Err(e) => return ServiceStatus { running: false, pid: None, message: e.to_string() } }
     }
     ServiceStatus { running: false, pid: None, message: "Ready to start".into() }
 }
 
 #[tauri::command]
-fn service_status(state: State<'_, ServiceProcess>) -> Result<ServiceStatus, String> {
+fn service_status(app: AppHandle, state: State<'_, ServiceProcess>) -> Result<ServiceStatus, String> {
     let mut process = state.0.lock().map_err(|_| "Service lock poisoned")?;
-    Ok(status_from(&mut process))
+    let log_path = config_path(&app)?.with_file_name("homecue-service.log");
+    Ok(status_from(&mut process, Some(&log_path)))
 }
 
 #[tauri::command]
 fn start_service(app: AppHandle, state: State<'_, ServiceProcess>) -> Result<ServiceStatus, String> {
     let mut process = state.0.lock().map_err(|_| "Service lock poisoned")?;
-    if status_from(&mut process).running { return Ok(status_from(&mut process)); }
+    let log_path = config_path(&app)?.with_file_name("homecue-service.log");
+    if status_from(&mut process, Some(&log_path)).running { return Ok(status_from(&mut process, Some(&log_path))); }
     let cfg = config_path(&app)?;
     if !cfg.exists() { save_settings(app.clone(), Settings::default())?; }
     let sidecar = std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join(if cfg!(windows) { "homecue-service.exe" } else { "homecue-service" })));
@@ -203,7 +210,6 @@ fn start_service(app: AppHandle, state: State<'_, ServiceProcess>) -> Result<Ser
     #[cfg(windows)]
     command.creation_flags(CREATE_NO_WINDOW);
     let inventory = inventory_path(&app)?;
-    let log_path = cfg.with_file_name("homecue-service.log");
     let log = OpenOptions::new().create(true).append(true).open(&log_path)
         .map_err(|e| format!("Could not open the HomeCue service log: {e}"))?;
     let log_err = log.try_clone().map_err(|e| e.to_string())?;
