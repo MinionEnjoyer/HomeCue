@@ -70,9 +70,10 @@ class IcueBridge:
         details, err = self._sdk.get_session_details()
         if err == CorsairError.CE_Success:
             log.info(
-                "Connected to iCUE (server v%s, SDK v%s)",
+                "Connected to iCUE (server v%s, SDK v%s, host iCUE v%s)",
                 details.server_version,
                 details.client_version,
+                details.server_host_version,
             )
 
         return True
@@ -122,6 +123,8 @@ class IcueBridge:
                     )
                     by_id.update({device.device_id: device for device in category_devices})
             devices_raw = list(by_id.values())
+            if not devices_raw:
+                log.warning("iCUE returned zero devices for every supported SDK category")
 
         if not devices_raw and self._announced_device_ids:
             log.info(
@@ -136,6 +139,8 @@ class IcueBridge:
                 else:
                     log.warning("Announced iCUE device %s is unavailable: %s", device_id, info_err)
             devices_raw = announced
+        elif not devices_raw:
+            log.warning("iCUE has not announced any device IDs to the SDK client")
 
         discovered = []
         for dev in devices_raw:

@@ -128,6 +128,24 @@ fn inventory_path(app: &AppHandle) -> Result<PathBuf, String> {
     app.path().app_config_dir().map(|p| p.join("inventory.json")).map_err(|e| e.to_string())
 }
 
+fn sidecar_path(app: &AppHandle) -> Result<Option<PathBuf>, String> {
+    let source = std::env::current_exe().ok().and_then(|p| p.parent().map(|dir| dir.join(if cfg!(windows) { "homecue-service.exe" } else { "homecue-service" })));
+    let Some(source) = source.filter(|path| path.exists()) else { return Ok(None); };
+    #[cfg(windows)] {
+        // Run from a versioned app-data copy so the Windows installer never
+        // overwrites the executable image that was active during this session.
+        let runtime = app.path().app_config_dir().map_err(|e| e.to_string())?
+            .join("runtime").join(app.package_info().version.to_string());
+        fs::create_dir_all(&runtime).map_err(|e| format!("Could not create service runtime directory: {e}"))?;
+        let target = runtime.join("homecue-service.exe");
+        let refresh = !target.exists() || fs::metadata(&source).ok().map(|m| m.len()) != fs::metadata(&target).ok().map(|m| m.len());
+        if refresh { fs::copy(&source, &target).map_err(|e| format!("Could not prepare the HomeCue service: {e}"))?; }
+        return Ok(Some(target));
+    }
+    #[cfg(not(windows))]
+    Ok(Some(source))
+}
+
 #[tauri::command]
 fn load_inventory(app: AppHandle) -> Result<serde_json::Value, String> {
     let path = inventory_path(&app)?;
@@ -270,8 +288,7 @@ fn start_service(app: AppHandle, state: State<'_, ServiceProcess>) -> Result<Ser
     if !cfg.exists() { save_settings(app.clone(), Settings::default())?; }
     #[cfg(windows)]
     stop_stale_sidecars();
-    let sidecar = std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join(if cfg!(windows) { "homecue-service.exe" } else { "homecue-service" })));
-    let mut command = if let Some(binary) = sidecar.filter(|p| p.exists()) {
+    let mut command = if let Some(binary) = sidecar_path(&app)? {
         Command::new(binary)
     } else {
         let mut cmd = Command::new(if cfg!(windows) { "pythonw" } else { "python3" });
