@@ -58,8 +58,9 @@ std::string escape_json(const char *raw) {
     return out.str();
 }
 
-int main() {
-    HMODULE library = LoadLibraryW(L"iCUESDK.x64_2019.dll");
+int wmain(int argc, wchar_t **argv) {
+    const wchar_t *library_path = argc > 1 ? argv[1] : L"iCUESDK.x64_2019.dll";
+    HMODULE library = LoadLibraryW(library_path);
     if (!library) {
         std::cout << "{\"connected\":false,\"error\":\"dll-not-found\",\"devices\":[]}";
         return 2;

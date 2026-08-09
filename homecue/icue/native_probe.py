@@ -31,11 +31,23 @@ def _probe_path() -> Path | None:
     return next((candidate for candidate in candidates if candidate and candidate.is_file()), None)
 
 
+def _sdk_path(probe: Path) -> Path | None:
+    candidates = [
+        probe.parent / "cuesdk" / "bin" / "iCUESDK.x64_2019.dll",
+        probe.parent / "iCUESDK.x64_2019.dll",
+    ]
+    return next((candidate for candidate in candidates if candidate.is_file()), None)
+
+
 def enumerate_native_devices(timeout: float = 15.0) -> list[NativeProbeDevice]:
     """Run the official-DLL probe and return its hardware inventory."""
     probe = _probe_path()
     if not probe:
         log.info("Native iCUE diagnostic probe is not bundled in this build")
+        return []
+    sdk = _sdk_path(probe)
+    if not sdk:
+        log.warning("Native iCUE diagnostic probe could not locate the bundled Corsair DLL")
         return []
     startupinfo = None
     creationflags = 0
@@ -45,7 +57,7 @@ def enumerate_native_devices(timeout: float = 15.0) -> list[NativeProbeDevice]:
         creationflags = subprocess.CREATE_NO_WINDOW
     try:
         result = subprocess.run(
-            [str(probe)],
+            [str(probe), str(sdk)],
             cwd=probe.parent,
             check=False,
             capture_output=True,
