@@ -12,6 +12,25 @@ _PROJECT_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__
 # Log file and default config live in the project root
 _LOG_FILE = os.path.join(_PROJECT_ROOT, "homecue.log")
 _DEFAULT_CONFIG = os.path.join(_PROJECT_ROOT, "config.yaml")
+_INSTANCE_MUTEX = None
+
+
+def _acquire_single_instance() -> bool:
+    """Prevent orphaned Windows sidecars from creating duplicate SDK sessions."""
+    global _INSTANCE_MUTEX
+    if sys.platform != "win32":
+        return True
+    import ctypes
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    handle = kernel32.CreateMutexW(None, False, "Local\\HomeCueService")
+    if not handle:
+        return False
+    if ctypes.get_last_error() == 183:  # ERROR_ALREADY_EXISTS
+        kernel32.CloseHandle(handle)
+        return False
+    _INSTANCE_MUTEX = handle
+    return True
 
 
 def _crash_log(message: str) -> None:
@@ -135,6 +154,9 @@ def main() -> None:
 def _entry() -> None:
     """Outermost entry point — catches everything including import errors."""
     try:
+        if not _acquire_single_instance():
+            _crash_log("HomeCue service is already running; refusing to start a duplicate instance")
+            return
         main()
     except SystemExit:
         raise

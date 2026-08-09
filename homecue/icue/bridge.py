@@ -9,6 +9,7 @@ from typing import Callable
 from cuesdk import (
     CorsairAccessLevel,
     CorsairDeviceFilter,
+    CorsairDeviceType,
     CorsairError,
     CorsairLedColor,
     CorsairSessionState,
@@ -23,18 +24,10 @@ log = logging.getLogger(__name__)
 _DEVICE_TYPE_NAMES = {
     0: "Unknown",
     1: "Keyboard",
-    2: "Mouse",
-    3: "Mousemat",
-    4: "Headset",
-    5: "Headset Stand",
-    6: "Fan LED Controller",
-    7: "LED Controller",
-    8: "Memory",
-    9: "Cooler",
-    10: "Motherboard",
-    11: "GPU",
-    12: "Touchbar",
-    13: "Game Controller",
+    2: "Mouse", 4: "Mousemat", 8: "Headset", 16: "Headset Stand",
+    32: "Fan LED Controller", 64: "LED Controller", 128: "Memory",
+    256: "Cooler", 512: "Motherboard", 1024: "GPU",
+    2048: "Touchbar", 4096: "Game Controller",
 }
 
 
@@ -101,7 +94,7 @@ class IcueBridge:
             return []
 
         # 0xFFFFFFFF = CDT_All (all device types)
-        device_filter = CorsairDeviceFilter(device_type_mask=0xFFFFFFFF)
+        device_filter = CorsairDeviceFilter(device_type_mask=CorsairDeviceType.CDT_All)
         devices_raw, err = self._sdk.get_devices(device_filter)
         if err != CorsairError.CE_Success:
             log.error("Device enumeration failed: %s", err)

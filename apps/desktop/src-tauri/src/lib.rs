@@ -16,6 +16,23 @@ use windows_sys::Win32::System::Threading::CREATE_NO_WINDOW;
 #[derive(Default)]
 struct ServiceProcess(Mutex<Option<Child>>);
 
+#[cfg(windows)]
+fn stop_stale_sidecars() {
+    let mut command = Command::new("taskkill");
+    command.args(["/F", "/T", "/IM", "homecue-service.exe"])
+        .creation_flags(CREATE_NO_WINDOW);
+    let _ = command.output();
+}
+
+fn stop_child(process: &mut Option<Child>) -> Result<(), String> {
+    if let Some(child) = process.as_mut() {
+        child.kill().map_err(|e| e.to_string())?;
+        let _ = child.wait();
+    }
+    *process = None;
+    Ok(())
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Settings {
@@ -198,6 +215,8 @@ fn start_service(app: AppHandle, state: State<'_, ServiceProcess>) -> Result<Ser
     if status_from(&mut process, Some(&log_path)).running { return Ok(status_from(&mut process, Some(&log_path))); }
     let cfg = config_path(&app)?;
     if !cfg.exists() { save_settings(app.clone(), Settings::default())?; }
+    #[cfg(windows)]
+    stop_stale_sidecars();
     let sidecar = std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join(if cfg!(windows) { "homecue-service.exe" } else { "homecue-service" })));
     let mut command = if let Some(binary) = sidecar.filter(|p| p.exists()) {
         Command::new(binary)
@@ -229,8 +248,8 @@ fn start_service(app: AppHandle, state: State<'_, ServiceProcess>) -> Result<Ser
 #[tauri::command]
 fn stop_service(state: State<'_, ServiceProcess>) -> Result<ServiceStatus, String> {
     let mut process = state.0.lock().map_err(|_| "Service lock poisoned")?;
-    if let Some(child) = process.as_mut() { child.kill().map_err(|e| e.to_string())?; let _ = child.wait(); }
-    *process = None; Ok(ServiceStatus { running: false, pid: None, message: "Stopped".into() })
+    stop_child(&mut process)?;
+    Ok(ServiceStatus { running: false, pid: None, message: "Stopped".into() })
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -246,7 +265,7 @@ pub fn run() {
             let quit = MenuItem::with_id(app, "quit", "Quit HomeCue", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&open, &quit])?;
             TrayIconBuilder::new().icon(app.default_window_icon().unwrap().clone()).tooltip("HomeCue").menu(&menu)
-                .on_menu_event(|app, event| match event.id.as_ref() { "open" => if let Some(w) = app.get_webview_window("main") { let _ = w.show(); let _ = w.set_focus(); }, "quit" => app.exit(0), _ => {} }).build(app)?;
+                .on_menu_event(|app, event| match event.id.as_ref() { "open" => if let Some(w) = app.get_webview_window("main") { let _ = w.show(); let _ = w.set_focus(); }, "quit" => { if let Ok(mut process) = app.state::<ServiceProcess>().0.lock() { let _ = stop_child(&mut process); } app.exit(0); }, _ => {} }).build(app)?;
             Ok(())
         })
         .on_window_event(|window, event| if let WindowEvent::CloseRequested { api, .. } = event { api.prevent_close(); let _ = window.hide(); })
