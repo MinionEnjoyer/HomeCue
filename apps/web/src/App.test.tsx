@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
-import { checkForUpdates, installUpdate, loadInventory, pairHomeAssistant, saveSettings, startService } from "./bridge";
+import { checkForUpdates, installUpdate, loadInventory, pairHomeAssistant, saveSettings, startService, stopService } from "./bridge";
 
 vi.mock("./bridge", async (loadOriginal) => {
   const original = await loadOriginal<typeof import("./bridge")>();
@@ -59,6 +59,16 @@ describe("HomeCue control center", () => {
     expect(await screen.findByText("HomeCue 0.3.0 is ready")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Install and restart" }));
     expect(installUpdate).toHaveBeenCalledOnce();
+  });
+
+  it("stops the service before installing an update", async () => {
+    vi.mocked(checkForUpdates).mockResolvedValueOnce({ version: "0.4.0", notes: "Update" });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "Start" }));
+    await user.click(await screen.findByRole("button", { name: "Install and restart" }));
+    expect(stopService).toHaveBeenCalledOnce();
+    expect(stopService).toHaveBeenCalledBefore(vi.mocked(installUpdate));
   });
 
   it("checks for updates from settings without restarting", async () => {

@@ -31,7 +31,7 @@ export default function App() {
   const toggleService = async () => { setBusy(true); try { setStatus(status.running ? await stopService() : await startService()); } catch (e) { setNotice(String(e)); } finally { setBusy(false); } };
   const pair = async () => { setBusy(true); try { const next = await pairHomeAssistant(companionUrl, pairingCode); setSettings(next); const started = await startService(); setStatus(started); setPairingCode(""); setNotice("HomeCue is paired and running"); } catch (e) { setNotice(`Setup failed: ${String(e)}`); } finally { setBusy(false); } };
   const checkUpdates = async () => { setBusy(true); setNotice("Checking for updates…"); try { const next = await checkForUpdates(); setAppUpdate(next); setNotice(next ? `HomeCue ${next.version} is available` : "HomeCue is up to date"); } catch (e) { setNotice(`Update check failed: ${String(e)}`); } finally { setBusy(false); } };
-  const updateApp = async () => { setBusy(true); setNotice("Downloading the update…"); try { await installUpdate(); } catch (e) { setNotice(String(e)); setBusy(false); } };
+  const updateApp = async () => { setBusy(true); setNotice("Preparing the update…"); try { if (status.running) { setNotice("Stopping HomeCue before updating…"); setStatus(await stopService()); } setNotice("Downloading the update…"); await installUpdate(); } catch (e) { setNotice(`Update failed: ${String(e)}`); setBusy(false); } };
 
   return <div className="shell">
     <aside>
