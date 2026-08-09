@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_yaml::{Mapping, Value};
 use sha2::Sha256;
 use std::{fs, fs::OpenOptions, path::{Path, PathBuf}, process::{Child, Command, Stdio}, sync::Mutex, thread, time::Duration};
-use tauri::{menu::{Menu, MenuItem}, tray::TrayIconBuilder, AppHandle, Manager, State, WindowEvent};
+use tauri::{menu::{Menu, MenuItem}, tray::TrayIconBuilder, AppHandle, Manager, RunEvent, State, WindowEvent};
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -269,5 +269,10 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| if let WindowEvent::CloseRequested { api, .. } = event { api.prevent_close(); let _ = window.hide(); })
-        .run(tauri::generate_context!()).expect("error while running HomeCue");
+        .build(tauri::generate_context!()).expect("error while building HomeCue")
+        .run(|app, event| if let RunEvent::ExitRequested { .. } = event {
+            if let Ok(mut process) = app.state::<ServiceProcess>().0.lock() {
+                let _ = stop_child(&mut process);
+            }
+        });
 }
