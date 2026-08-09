@@ -61,6 +61,17 @@ describe("HomeCue control center", () => {
     expect(installUpdate).toHaveBeenCalledOnce();
   });
 
+  it("checks for updates from settings without restarting", async () => {
+    vi.mocked(checkForUpdates).mockResolvedValueOnce(null).mockResolvedValueOnce({ version: "0.4.0", notes: "Latest build" });
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    await user.click(screen.getByRole("button", { name: "Check for updates" }));
+    expect((await screen.findAllByText("HomeCue 0.4.0 is available")).length).toBeGreaterThanOrEqual(1);
+    expect(checkForUpdates).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("button", { name: "Install and restart" })).toBeVisible();
+  });
+
   it("edits and saves connection settings", async () => {
     const user = userEvent.setup();
     render(<App />);
