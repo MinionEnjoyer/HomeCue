@@ -17,6 +17,7 @@ from cuesdk import (
 )
 
 from homecue.icue.devices import CorsairDevice
+from homecue.icue.native_probe import enumerate_native_devices
 
 log = logging.getLogger(__name__)
 
@@ -131,7 +132,38 @@ class IcueBridge:
                 log.warning("iCUE returned zero devices for every supported SDK category")
 
         if not devices_raw:
-            log.warning("iCUE SDK enumeration returned no controllable devices")
+            log.warning("iCUE SDK enumeration returned no controllable devices; running native probe")
+            native_devices = enumerate_native_devices()
+            if native_devices:
+                log.warning(
+                    "Native SDK found %d device(s) that the Python SDK session omitted",
+                    len(native_devices),
+                )
+                discovered = [
+                    CorsairDevice(
+                        device_id=device.device_id,
+                        name=device.model,
+                        model=device.model,
+                        device_type=_DEVICE_TYPE_NAMES.get(
+                            device.device_type, f"Type({device.device_type})"
+                        ),
+                        led_count=len(device.led_ids),
+                        led_ids=device.led_ids,
+                    )
+                    for device in native_devices
+                ]
+                for device in discovered:
+                    ctrl_err = self._sdk.request_control(
+                        device.device_id,
+                        CorsairAccessLevel.CAL_ExclusiveLightingControl
+                        if self._exclusive
+                        else CorsairAccessLevel.CAL_Shared,
+                    )
+                    if ctrl_err != CorsairError.CE_Success:
+                        log.warning("Could not get control of native-probed %s: %s", device.name, ctrl_err)
+                with self._lock:
+                    self._devices = {device.device_id: device for device in discovered}
+                return discovered
 
         discovered = []
         for dev in devices_raw:

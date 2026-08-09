@@ -15,6 +15,7 @@ from cuesdk import (
 )
 
 from homecue.icue.bridge import IcueBridge, _DEVICE_TYPE_MASKS
+from homecue.icue.native_probe import NativeProbeDevice
 
 
 SUCCESS = CorsairError(CorsairError.CE_Success)
@@ -180,6 +181,32 @@ def test_primary_enumeration_error_does_not_attempt_fallback(bridge: IcueBridge,
     sdk.get_devices.return_value = [], FAILURE
     assert bridge.discover_devices() == []
     sdk.get_devices.assert_called_once()
+
+
+def test_native_probe_recovers_devices_omitted_by_python_sdk(
+    bridge: IcueBridge, sdk: Mock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sdk.get_devices.return_value = [], SUCCESS
+    monkeypatch.setattr(
+        "homecue.icue.bridge.enumerate_native_devices",
+        lambda: [
+            NativeProbeDevice(
+                device_id="link-hub-native",
+                model="iCUE LINK System Hub",
+                device_type=CorsairDeviceType.CDT_LedController,
+                led_ids=[101, 102, 103],
+            )
+        ],
+    )
+
+    devices = bridge.discover_devices()
+
+    assert [(item.device_id, item.led_ids) for item in devices] == [
+        ("link-hub-native", [101, 102, 103])
+    ]
+    sdk.request_control.assert_called_once_with(
+        "link-hub-native", CorsairAccessLevel.CAL_Shared
+    )
 
 
 def test_discovery_skips_device_when_info_lookup_fails(bridge: IcueBridge, sdk: Mock) -> None:

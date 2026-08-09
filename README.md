@@ -16,7 +16,7 @@ and a Home Assistant companion app for encrypted one-time MQTT provisioning.
   <strong><a href="https://github.com/MinionEnjoyer/HomeCue/releases/latest">Download the HomeCue Windows client</a></strong>
 </p>
 
-> **Current release:** desktop and service **0.3.15**. The Windows installer is available from the
+> **Current release:** desktop and service **0.3.16**. The Windows installer is available from the
 > [latest release](https://github.com/MinionEnjoyer/HomeCue/releases/latest). Versioned
 > `desktop-vX.Y.Z` releases include signed in-app updates so users only need to run the installer once.
 
